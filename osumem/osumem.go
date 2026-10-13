@@ -35,11 +35,25 @@ import (
 var (
 	// ErrProcessNotFound is returned when no osu! process is running.
 	ErrProcessNotFound = errors.New("osumem: osu! process not found")
+	// ErrProcessGone is returned once the attached osu! process has exited.
+	// Both StableReader and LazerReader report this same error so callers can
+	// treat a closed game uniformly and reattach by calling Open again.
+	ErrProcessGone = errors.New("osumem: osu! process has exited")
 	// ErrPatternNotFound is returned when an AOB signature cannot be located.
 	ErrPatternNotFound = errors.New("osumem: memory pattern not found")
 	// ErrBeatmapNotLoaded is returned when no beatmap is currently selected.
 	ErrBeatmapNotLoaded = errors.New("osumem: no beatmap loaded")
 )
+
+// processGone reports whether the attached process has exited. It only has an
+// opinion when the underlying memory implements processAlive (the real platform
+// process does); test doubles are assumed to be alive.
+func processGone(m memory) bool {
+	if a, ok := m.(processAlive); ok {
+		return !a.alive()
+	}
+	return false
+}
 
 // Client is implemented by StableReader and LazerReader. It is the
 // client-agnostic surface returned by Open.
@@ -48,7 +62,9 @@ type Client interface {
 	Kind() string
 	// PID returns the attached process id.
 	PID() uint32
-	// Beatmap reads and returns metadata for the selected beatmap.
+	// Beatmap reads and returns metadata for the selected beatmap. It returns
+	// ErrProcessGone once the attached game has exited and ErrBeatmapNotLoaded
+	// while no song is selected.
 	Beatmap() (*BeatmapInfo, error)
 	// BeatmapFilePath resolves the on-disk .osu file for info, or "" when the
 	// path cannot be determined.
@@ -302,7 +318,11 @@ func OpenPID(pid uint32) (Client, error) {
 func newStableReader(p *process) (*StableReader, error) {
 	baseAddr, err := p.scan(mustSignature(sigBaseAddr))
 	if err != nil {
+		gone := !p.alive()
 		p.close()
+		if gone {
+			return nil, ErrProcessGone
+		}
 		return nil, fmt.Errorf("osumem: locate stable base: %w", err)
 	}
 	// The settings signature is only needed to resolve the Songs folder; it is

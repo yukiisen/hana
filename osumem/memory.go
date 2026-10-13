@@ -19,3 +19,11 @@ type memory interface {
 	// readSharpStringPtr reads a pointer at addr then decodes the string there.
 	readSharpStringPtr(addr uintptr) (string, error)
 }
+
+// processAlive is an optional extension of memory implemented by the real
+// platform process to report whether the attached target is still running.
+// Decoders type-assert to it via processGone; test doubles need not implement
+// it and are then treated as alive.
+type processAlive interface {
+	alive() bool
+}

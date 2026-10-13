@@ -22,6 +22,7 @@ var (
 	procVirtualQueryEx    = kernel32.NewProc("VirtualQueryEx")
 	procOpenProcess       = kernel32.NewProc("OpenProcess")
 	procCloseHandle       = kernel32.NewProc("CloseHandle")
+	procGetExitCode       = kernel32.NewProc("GetExitCodeProcess")
 	procGetCurrentProcess = kernel32.NewProc("GetCurrentProcess")
 	procIsWow64Process    = kernel32.NewProc("IsWow64Process")
 	procSnapshot          = kernel32.NewProc("CreateToolhelp32Snapshot")
@@ -39,6 +40,7 @@ const (
 	processQueryInformation = 0x0400
 	th32csSnapProcess       = 0x00000002
 	invalidHandleValue      = ^uintptr(0)
+	stillActive             = 259
 
 	memCommit    = 0x1000
 	pageNoAccess = 0x01
@@ -183,6 +185,21 @@ func (p *process) close() {
 		procCloseHandle.Call(p.handle)
 		p.handle = 0
 	}
+}
+
+// alive reports whether the target process is still running. GetExitCodeProcess
+// returns STILL_ACTIVE while it is; any other code, or a failed call once the
+// handle is stale, means it has exited.
+func (p *process) alive() bool {
+	if p.handle == 0 {
+		return false
+	}
+	var code uint32
+	r, _, _ := procGetExitCode.Call(p.handle, uintptr(unsafe.Pointer(&code)))
+	if r == 0 {
+		return false
+	}
+	return code == stillActive
 }
 
 // read copies size bytes from the target at addr.

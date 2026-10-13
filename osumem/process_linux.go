@@ -4,6 +4,7 @@ package osumem
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -92,6 +93,35 @@ func (p *process) close() {
 		syscall.Close(int(p.handle))
 		p.handle = 0
 	}
+}
+
+// alive reports whether the target process is still running. A closed handle is
+// treated as dead; otherwise kill(pid, 0) distinguishes a missing process
+// (ESRCH) from one we may not signal (EPERM, still alive). A process left as a
+// zombie counts as gone because its memory can no longer be read.
+func (p *process) alive() bool {
+	if p.handle == 0 {
+		return false
+	}
+	if err := syscall.Kill(int(p.pid), 0); err != nil {
+		return errors.Is(err, syscall.EPERM)
+	}
+	return !isZombie(p.pid)
+}
+
+// isZombie reports whether pid has exited but not yet been reaped. The state
+// field follows the parenthesised comm name in /proc/<pid>/stat; finding the
+// last ')' skips any spaces inside the name.
+func isZombie(pid uint32) bool {
+	b, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
+	if err != nil {
+		return true
+	}
+	i := bytes.LastIndexByte(b, ')')
+	if i < 0 || i+2 >= len(b) {
+		return false
+	}
+	return b[i+2] == 'Z'
 }
 
 // read copies size bytes from the target at addr through /proc/<pid>/mem.

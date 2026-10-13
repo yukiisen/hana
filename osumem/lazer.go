@@ -303,8 +303,17 @@ func (l *LazerReader) SongsFolder() string {
 
 // Beatmap reads the currently selected beatmap.
 func (l *LazerReader) Beatmap() (*BeatmapInfo, error) {
+	if processGone(l.mem) {
+		return nil, ErrProcessGone
+	}
+
 	infoPtr, setPtr := l.currentBeatmap()
 	if infoPtr == 0 {
+		// Lazer degrades every failed read to zero, so a closed game looks
+		// exactly like an empty menu; distinguish the two here.
+		if processGone(l.mem) {
+			return nil, ErrProcessGone
+		}
 		return nil, ErrBeatmapNotLoaded
 	}
 
@@ -354,8 +363,12 @@ func (l *LazerReader) Beatmap() (*BeatmapInfo, error) {
 	}
 
 	// A loaded beatmap always exposes a content hash; without it the game is
-	// likely still loading or sitting on the main menu.
+	// likely still loading or sitting on the main menu. Check for a vanished
+	// process first so the two cases stay distinguishable.
 	if info.Filename == "" {
+		if processGone(l.mem) {
+			return nil, ErrProcessGone
+		}
 		return nil, ErrBeatmapNotLoaded
 	}
 	return info, nil

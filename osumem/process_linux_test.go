@@ -4,7 +4,9 @@ package osumem
 
 import (
 	"encoding/binary"
+	"errors"
 	"os"
+	"os/exec"
 	"runtime"
 	"strconv"
 	"strings"
@@ -86,6 +88,52 @@ func TestIsProcess64Bit(t *testing.T) {
 	want := strconv.IntSize == 64
 	if got != want {
 		t.Fatalf("isProcess64Bit(self) = %v, want %v", got, want)
+	}
+}
+
+func TestProcessAlive(t *testing.T) {
+	p := selfProcess(t)
+	if !p.alive() {
+		t.Fatal("live process reported dead")
+	}
+	p.close()
+	if p.alive() {
+		t.Fatal("closed handle reported alive")
+	}
+}
+
+func TestProcessAliveAfterExit(t *testing.T) {
+	cmd := exec.Command("sleep", "30")
+	if err := cmd.Start(); err != nil {
+		t.Skipf("cannot start helper: %v", err)
+	}
+	pid := uint32(cmd.Process.Pid)
+
+	handle, err := openHandle(pid)
+	if err != nil {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+		t.Skipf("openHandle(%d): %v", pid, err)
+	}
+	p := &process{handle: handle, pid: pid, bitness: 64}
+	defer p.close()
+
+	if !p.alive() {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+		t.Fatal("running child reported dead")
+	}
+
+	_ = cmd.Process.Kill()
+	_ = cmd.Wait()
+
+	if p.alive() {
+		t.Fatal("exited child reported alive")
+	}
+
+	r := &StableReader{mem: p}
+	if _, err := r.Beatmap(); !errors.Is(err, ErrProcessGone) {
+		t.Fatalf("Beatmap err = %v, want ErrProcessGone", err)
 	}
 }
 

@@ -97,9 +97,16 @@ func (r *StableReader) Beatmap() (*BeatmapInfo, error) {
 	m := r.mem
 	base := r.baseAddr
 
+	if processGone(m) {
+		return nil, ErrProcessGone
+	}
+
 	// beatmapAddr = readPointer(baseAddr - 0xC) (tsprocess readPointer = two derefs)
 	beatmapAddr, err := m.readPtrPtr(base - 0xc)
 	if err != nil {
+		if processGone(m) {
+			return nil, ErrProcessGone
+		}
 		return nil, fmt.Errorf("osumem: read beatmap pointer: %w", err)
 	}
 	if beatmapAddr == 0 {
@@ -167,8 +174,12 @@ func (r *StableReader) Beatmap() (*BeatmapInfo, error) {
 	}
 
 	// A real beatmap always has a .osu filename; its absence means the user is
-	// sitting in the main menu or a song isn't selected yet.
+	// sitting in the main menu or a song isn't selected yet. Guard against the
+	// process exiting mid-read, which would otherwise look like an empty menu.
 	if info.Filename == "" {
+		if processGone(m) {
+			return nil, ErrProcessGone
+		}
 		return nil, ErrBeatmapNotLoaded
 	}
 	return info, nil
