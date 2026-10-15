@@ -4,18 +4,45 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/coder/websocket"
+	ws "github.com/coder/websocket"
+	"github.com/yukiisen/ohana/logger"
 )
 
 type ClientHandler struct {
-	lock sync.Mutex
-	clients []*websocket.Conn
+	Mu sync.Mutex
+	Clients []*ws.Conn
 }
 
-func NewClientHandler() ClientHandler {
-	return ClientHandler{ lock: sync.Mutex{}, clients: []*websocket.Conn{} }
-}
+func (h *ClientHandler) Connection(w http.ResponseWriter, r *http.Request) {
+	conn, err := ws.Accept(w, r, nil)
+	if err != nil {
+		logger.Warnf("Failed to upgrade websocket connection")
+		return
+	}
 
-func (c *ClientHandler) Connection(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("hi mom\n"))
+	defer func() {
+		h.Mu.Lock()
+		defer h.Mu.Unlock()
+
+		for i, c := range h.Clients {
+			if c == conn {
+				h.Clients = append(h.Clients[:i], h.Clients[i+1:]...)
+				break
+			}
+		}
+
+		conn.CloseNow()
+	}()
+
+	h.Mu.Lock()
+	h.Clients = append(h.Clients, conn)
+	h.Mu.Unlock()
+
+	logger.Infof("Client Connected.")
+
+	ctx := conn.CloseRead(r.Context())
+
+	// Wait until the client disconnects.
+	<-ctx.Done()
+
 }

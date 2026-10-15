@@ -1,99 +1,236 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="color-scheme" content="light dark" />
-  <meta name="theme-color" media="(prefers-color-scheme: light)" content="white" />
-  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="black" />
-  <title>osu!lazer — Beatmap Leaderboard</title>
-  <meta name="description" content="A full-screen osu!lazer-inspired beatmap leaderboard." />
-  <link rel="stylesheet" href="styles.css" />
-</head>
-<body class="antialiased">
-  <main class="osu-shell">
-    <section class="beatmap-head">
-      <a class="cover-art" id="cover-link" href="https://osu.ppy.sh" target="_blank" rel="noreferrer">
-        <img id="cover" src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='112' height='112'%3E%3Crect width='112' height='112' fill='%23272a2e'/%3E%3C/svg%3E" alt="Beatmap artwork" />
-        <span class="play-circle">
-          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3" /></svg>
-        </span>
-      </a>
-      <div class="map-copy">
-        <div class="eyebrow">
-          <span class="pill grey" id="status">—</span>
-          <span class="pill" id="gamemode">osu! standard</span>
-          <a class="dim link" id="mapset-link" href="https://osu.ppy.sh" target="_blank" rel="noreferrer" style="display: none">MAPSET</a>
-        </div>
-        <h1><a class="link title-link" id="title-link" href="https://osu.ppy.sh" target="_blank" rel="noreferrer">No beatmap loaded</a></h1>
-        <p class="subline">
-          <a class="link" id="artist-link" href="https://osu.ppy.sh" target="_blank" rel="noreferrer" style="display: none"></a>
-          <span>•</span> mapped by
-          <a class="link mapper-link" id="creator-link" href="https://osu.ppy.sh" target="_blank" rel="noreferrer"><strong id="creator">unknown</strong></a>
-        </p>
-        <p class="difficulty"><span id="difficulty"></span> <span id="stars">☆ 0.00</span></p>
-      </div>
-      <div class="map-info">
-        <div class="map-stats">
-          <div><b>AR</b><strong id="ar">—</strong></div>
-          <div><b>CS</b><strong id="cs">—</strong></div>
-          <div><b>OD</b><strong id="od">—</strong></div>
-          <div><b>HP</b><strong id="hp">—</strong></div>
-        </div>
-        <div class="map-meta">
-          <span>
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><path d="M6 12c0-1.7.7-3.2 1.8-4.2" /><circle cx="12" cy="12" r="2" /><path d="M18 12c0 1.7-.7 3.2-1.8 4.2" /></svg>
-            <span id="objects">— objects</span>
-          </span>
-          <span>
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3" /></svg>
-            <span id="plays">— plays</span>
-          </span>
-          <span id="length">Audio —:—</span>
-        </div>
-      </div>
-    </section>
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta name="color-scheme" content="light dark" />
+		<meta
+			name="theme-color"
+			media="(prefers-color-scheme: light)"
+			content="white"
+		/>
+		<meta
+			name="theme-color"
+			media="(prefers-color-scheme: dark)"
+			content="black"
+		/>
+		<title>osu!lazer — Beatmap Leaderboard</title>
+		<meta
+			name="description"
+			content="A full-screen osu!lazer-inspired beatmap leaderboard."
+		/>
+		<link rel="stylesheet" href="styles.css" />
+	</head>
+	<body class="antialiased">
+		<main class="osu-shell">
+			<section class="beatmap-head">
+				<a
+					class="cover-art"
+					id="cover-link"
+					href="https://osu.ppy.sh"
+					target="_blank"
+					rel="noreferrer"
+				>
+					<img
+						id="cover"
+						src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='112' height='112'%3E%3Crect width='112' height='112' fill='%23272a2e'/%3E%3C/svg%3E"
+						alt="Beatmap artwork"
+					/>
+					<span class="play-circle">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="22"
+							height="22"
+							viewBox="0 0 24 24"
+							fill="currentColor"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<polygon points="6 3 20 12 6 21 6 3" />
+						</svg>
+					</span>
+				</a>
+				<div class="map-copy">
+					<div class="eyebrow">
+						<span class="pill grey" id="status">—</span>
+						<span class="pill" id="gamemode">osu! standard</span>
+						<a
+							class="dim link"
+							id="mapset-link"
+							href="https://osu.ppy.sh"
+							target="_blank"
+							rel="noreferrer"
+							style="display: none"
+							>MAPSET</a
+						>
+					</div>
+					<h1>
+						<a
+							class="link title-link"
+							id="title-link"
+							href="https://osu.ppy.sh"
+							target="_blank"
+							rel="noreferrer"
+							>No beatmap loaded</a
+						>
+					</h1>
+					<p class="subline">
+						<a
+							class="link"
+							id="artist-link"
+							href="https://osu.ppy.sh"
+							target="_blank"
+							rel="noreferrer"
+							style="display: none"
+						></a>
+						<span>•</span> mapped by
+						<a
+							class="link mapper-link"
+							id="creator-link"
+							href="https://osu.ppy.sh"
+							target="_blank"
+							rel="noreferrer"
+							><strong id="creator">unknown</strong></a
+						>
+					</p>
+					<p class="difficulty">
+						<span id="difficulty"></span> <span id="stars">☆ 0.00</span>
+					</p>
+				</div>
+				<div class="map-info">
+					<div class="map-stats">
+						<div><b>AR</b><strong id="ar">—</strong></div>
+						<div><b>CS</b><strong id="cs">—</strong></div>
+						<div><b>OD</b><strong id="od">—</strong></div>
+						<div><b>HP</b><strong id="hp">—</strong></div>
+					</div>
+					<div class="map-meta">
+						<span>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="14"
+								height="14"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<circle cx="12" cy="12" r="10" />
+								<path d="M6 12c0-1.7.7-3.2 1.8-4.2" />
+								<circle cx="12" cy="12" r="2" />
+								<path d="M18 12c0 1.7-.7 3.2-1.8 4.2" />
+							</svg>
+							<span id="objects">— objects</span>
+						</span>
+						<span>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="14"
+								height="14"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<polygon points="6 3 20 12 6 21 6 3" />
+							</svg>
+							<span id="plays">— plays</span>
+						</span>
+						<span id="length">Audio —:—</span>
+					</div>
+				</div>
+			</section>
 
-    <section class="content-panel">
-      <div class="panel-heading">
-        <div>
-          <h2>Leaderboard</h2>
-          <p>Top scores on this beatmap</p>
-        </div>
-        <div class="controls">
-          <label for="scope">View</label>
-          <div class="select-wrap">
-            <select id="scope">
-              <option value="global">Global</option>
-              <option value="friends">Friends</option>
-              <option value="country">Country</option>
-              <option value="local">Local</option>
-            </select>
-            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6" /></svg>
-          </div>
-        </div>
-      </div>
+			<section class="content-panel">
+				<div class="panel-heading">
+					<div>
+						<h2>Leaderboard</h2>
+						<p>Top scores on this beatmap</p>
+					</div>
+					<div class="controls">
+						<label for="scope">View</label>
+						<div class="select-wrap">
+							<select id="scope">
+								<option value="global">Global</option>
+								<option value="friends">Friends</option>
+								<option value="country">Country</option>
+								<option value="local">Local</option>
+							</select>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="15"
+								height="15"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<path d="m6 9 6 6 6-6" />
+							</svg>
+						</div>
+					</div>
+				</div>
 
-      <div class="leaderboard-list" id="leaderboard"></div>
+				<div class="leaderboard-list" id="leaderboard"></div>
 
-      <div class="panel-footer">
-        <span>
-          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><path d="M15.54 8.46a5 5 0 0 1 0 7.07" /><path d="M19.07 4.93a10 10 0 0 1 0 14.14" /></svg>
-          Previewing score by <strong id="previewing">—</strong>
-        </span>
-      </div>
-    </section>
+				<div class="panel-footer">
+					<span>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="15"
+							height="15"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+							<path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+							<path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+						</svg>
+						Previewing score by <strong id="previewing">—</strong>
+					</span>
+				</div>
+			</section>
 
-    <footer class="bottom-bar">
-      <span>O!hana osu leaderboard viewer</span>
-      <span>
-        <a class="link" href="https://osu.ppy.sh" target="_blank" rel="noreferrer">osu! website</a>
-        <a class="link" href="https://github.com/yukiisen/ohana" target="_blank" rel="noreferrer">source</a>
-        <a class="link" href="https://github.com/yukiisen/ohana/issues" target="_blank" rel="noreferrer">report an issue</a>
-      </span>
-    </footer>
-  </main>
+			<footer class="bottom-bar">
+				<span>O!hana osu leaderboard viewer</span>
+				<span>
+					<a
+						class="link"
+						href="https://osu.ppy.sh"
+						target="_blank"
+						rel="noreferrer"
+						>osu! website</a
+					>
+					<a
+						class="link"
+						href="https://github.com/yukiisen/ohana"
+						target="_blank"
+						rel="noreferrer"
+						>source</a
+					>
+					<a
+						class="link"
+						href="https://github.com/yukiisen/ohana/issues"
+						target="_blank"
+						rel="noreferrer"
+						>report an issue</a
+					>
+				</span>
+			</footer>
+		</main>
 
-  <script src="app.js" defer></script>
-</body>
+		<script src="/app.js"></script>
+	</body>
 </html>
