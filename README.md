@@ -9,6 +9,8 @@ currently selected beatmap out of game memory (like
 pushes them to a web UI over a WebSocket — so you can watch friends' (or global)
 scores update in real time while you play.
 
+![screenshot](screenshot.png)
+
 ## Features
 
 - Beatmap changes are picked up every 400 ms and
