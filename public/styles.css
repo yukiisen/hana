@@ -309,6 +309,21 @@ h2 {
 	color: #bba9b9;
 	font-size: 11px;
 }
+.cta {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 9px 14px;
+	border: 1px solid rgba(255, 140, 151, 0.55);
+	background: rgba(224, 82, 103, 0.65);
+	color: #fff;
+	font-size: 11px;
+	font-weight: 800;
+	letter-spacing: 0.9px;
+	text-transform: uppercase;
+	text-decoration: none;
+	box-shadow: 0 2px 10px rgba(224, 82, 103, 0.35);
+}
 .select-wrap {
 	position: relative;
 }

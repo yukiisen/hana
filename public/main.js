@@ -39,7 +39,7 @@ ws.onmessage = async (event) => {
     if (ev.type == "Beatmap") {
         await calcPerformance(ev.data);
         setBeatmap(ev.data);
-        activeLb = [];
+        if (ev.data.mapID != activeLb[0]?.beatmap_id) activeLb = [];
     } else if (ev.type == "Leaderboard") {
         if (activeName !== ev.leaderboard) activeLb = [];
         activeLb.push(...ev.data);
