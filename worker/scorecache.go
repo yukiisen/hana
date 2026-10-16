@@ -1,64 +1,48 @@
 package worker
 
 import (
-	"sync"
+	"encoding/json"
+	"fmt"
 	"time"
+
+	"github.com/yukiisen/ohana/cache"
+	"github.com/yukiisen/ohana/logger"
 )
 
-type Key struct {
-	BeatmapID int
-	UserID    int
-}
-
-type entry struct {
-	score     Score
-	expiresAt time.Time
-}
-
 type ScoreCache struct {
-	mu      sync.RWMutex
-	scores  map[Key]entry
-	ttl     time.Duration
+	store *cache.Cache
+	ttl   time.Duration
 }
 
-func NewScoreCache(ttl time.Duration) *ScoreCache {
-	return &ScoreCache{
-		scores: make(map[Key]entry),
-		ttl:    ttl,
-	}
+func NewScoreCache(store *cache.Cache, ttl time.Duration) *ScoreCache {
+	return &ScoreCache{store: store, ttl: ttl}
+}
+
+func scoreKey(beatmapID, userID int) string {
+	return fmt.Sprintf("%d:%d", beatmapID, userID)
 }
 
 func (c *ScoreCache) Get(beatmapID, userID int) (Score, bool) {
-	key := Key{beatmapID, userID}
-
-	c.mu.RLock()
-	item, ok := c.scores[key]
-	if ok && time.Now().Before(item.expiresAt) {
-		c.mu.RUnlock()
-		return item.score, true
-	}
-	c.mu.RUnlock()
-
-	// Remove expired entries.
-	if ok {
-		c.mu.Lock()
-		if current, exists := c.scores[key]; exists &&
-			!time.Now().Before(current.expiresAt) {
-			delete(c.scores, key)
-		}
-		c.mu.Unlock()
+	raw, ok := c.store.Score(scoreKey(beatmapID, userID))
+	if !ok {
+		return Score{}, false
 	}
 
-	return Score{}, false
+	var score Score
+	if err := json.Unmarshal(raw, &score); err != nil {
+		logger.Errorf("Failed to decode cached score: %v", err)
+		return Score{}, false
+	}
+
+	return score, true
 }
 
 func (c *ScoreCache) Set(score Score) {
-	key := Key{score.BeatmapID, score.UserID}
-
-	c.mu.Lock()
-	c.scores[key] = entry{
-		score:     score,
-		expiresAt: time.Now().Add(c.ttl),
+	raw, err := json.Marshal(score)
+	if err != nil {
+		logger.Errorf("Failed to encode score for cache: %v", err)
+		return
 	}
-	c.mu.Unlock()
+
+	c.store.SetScore(scoreKey(score.BeatmapID, score.UserID), raw, c.ttl)
 }

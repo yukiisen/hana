@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/yukiisen/ohana/cache"
 	"github.com/yukiisen/ohana/config"
 	"github.com/yukiisen/ohana/handler"
 	"github.com/yukiisen/ohana/logger"
@@ -27,9 +28,20 @@ func main() {
 	config, err := config.Load("config.json")
 	if err != nil { log.Fatal(err) }
 
+	store, err := cache.Load("cache.json")
+	if err != nil {
+		logger.Warnf("Failed to load cache.json, starting fresh: %v", err)
+		store = cache.New("cache.json")
+	}
+	defer func() {
+		if err := store.Save(); err != nil {
+			logger.Errorf("Failed to persist cache: %v", err)
+		}
+	}()
+
 	clientMan := handler.ClientHandler {}
 
-	leaderboardWorker, err := worker.NewLeadboardWorker(config, &clientMan)
+	leaderboardWorker, err := worker.NewLeadboardWorker(config, store, &clientMan)
 	if err != nil { log.Fatal(err) }
 	defer leaderboardWorker.Wg.Wait()
 

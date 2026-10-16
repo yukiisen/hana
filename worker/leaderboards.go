@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/yukiisen/ohana/cache"
 	"github.com/yukiisen/ohana/config"
 	"github.com/yukiisen/ohana/handler"
 	"github.com/yukiisen/ohana/logger"
@@ -19,9 +20,7 @@ type LeaderboardWorker struct {
 	Clients *handler.ClientHandler
 	Api     *Client
 	Cfg     *config.Config
-
-	userIDsMu sync.RWMutex
-	userIDs   map[string]int
+	Store   *cache.Cache
 
 	ActiveLeaderboard string
 	scoreCache        *ScoreCache
@@ -29,7 +28,11 @@ type LeaderboardWorker struct {
 	Wg                sync.WaitGroup
 }
 
-func NewLeadboardWorker(cfg *config.Config, clients *handler.ClientHandler) (*LeaderboardWorker, error) {
+func NewLeadboardWorker(
+	cfg *config.Config,
+	store *cache.Cache,
+	clients *handler.ClientHandler,
+) (*LeaderboardWorker, error) {
 	api, err := NewClient(context.Background(), cfg.API.ClientID, cfg.API.ClientSecret)
 	if err != nil {
 		return nil, err
@@ -38,10 +41,10 @@ func NewLeadboardWorker(cfg *config.Config, clients *handler.ClientHandler) (*Le
 	l := &LeaderboardWorker{
 		Clients:           clients,
 		Api:               api,
-		Cfg:			   cfg,
-		userIDs:           make(map[string]int),
+		Cfg:               cfg,
+		Store:             store,
 		ActiveLeaderboard: "friends",
-		scoreCache:		   NewScoreCache(5 * time.Minute),
+		scoreCache:        NewScoreCache(store, 5*time.Minute),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -55,21 +58,23 @@ func NewLeadboardWorker(cfg *config.Config, clients *handler.ClientHandler) (*Le
 }
 
 func (l *LeaderboardWorker) UserID(username string) (int, bool) {
-	l.userIDsMu.RLock()
-	defer l.userIDsMu.RUnlock()
-
-	id, ok := l.userIDs[username]
-	return id, ok
+	return l.Store.UserID(username)
 }
 
 func (l *LeaderboardWorker) LoadUserIDs(ctx context.Context) error {
+	defer func() {
+		if err := l.Store.Save(); err != nil {
+			logger.Errorf("Failed to persist cache: %v", err)
+		}
+	}()
+
 	httpClient := &http.Client{
 		Timeout: 10 * time.Second,
 	}
 
 	for _, usernames := range l.Cfg.Leaderboards() {
 		for _, username := range usernames {
-			if _, exists := l.userIDs[username]; exists {
+			if _, exists := l.Store.UserID(username); exists {
 				continue
 			}
 
@@ -107,15 +112,13 @@ func (l *LeaderboardWorker) LoadUserIDs(ctx context.Context) error {
 					username, user.ID)
 			}
 
-			l.userIDsMu.Lock()
-			l.userIDs[username] = user.ID
-			l.userIDsMu.Unlock()
+			l.Store.SetUserID(username, user.ID)
 
 			logger.Debugf("Cached user ID: %s = %d", username, user.ID)
 		}
 	}
 
-	logger.Infof("Cached %d user IDs", len(l.userIDs))
+	logger.Infof("Cached %d user IDs", l.Store.UserIDCount())
 	return nil
 }
 
@@ -126,6 +129,12 @@ type leaderboardMessage struct {
 }
 
 func (l *LeaderboardWorker) Load(ctx context.Context, beatmapID int32) error {
+	defer func() {
+		if err := l.Store.Save(); err != nil {
+			logger.Errorf("Failed to persist cache: %v", err)
+		}
+	}()
+
 	l.mu.Lock()
 	name := l.ActiveLeaderboard
 	l.mu.Unlock()
