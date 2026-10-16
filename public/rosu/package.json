@@ -1,0 +1,31 @@
+{
+  "name": "rosu-pp-js",
+  "type": "module",
+  "collaborators": [
+    "MaxOhn <ohn.m@hotmail.de>"
+  ],
+  "description": "Difficulty and performance calculation for osu!",
+  "version": "4.0.1",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MaxOhn/rosu-pp-js"
+  },
+  "files": [
+    "rosu_pp_js_bg.wasm",
+    "rosu_pp_js.js",
+    "rosu_pp_js.d.ts"
+  ],
+  "main": "rosu_pp_js.js",
+  "types": "rosu_pp_js.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ],
+  "keywords": [
+    "osu",
+    "pp",
+    "stars",
+    "performance",
+    "difficulty"
+  ]
+}

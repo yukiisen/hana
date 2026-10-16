@@ -19,10 +19,14 @@
 			name="description"
 			content="A full-screen osu!lazer-inspired beatmap leaderboard."
 		/>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
 		<link rel="stylesheet" href="styles.css" />
 	</head>
 	<body class="antialiased">
 		<main class="osu-shell">
+            <div id="background"></div>
 			<section class="beatmap-head">
 				<a
 					class="cover-art"
@@ -106,43 +110,9 @@
 						<div><b>OD</b><strong id="od">—</strong></div>
 						<div><b>HP</b><strong id="hp">—</strong></div>
 					</div>
-					<div class="map-meta">
-						<span>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								width="14"
-								height="14"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-							>
-								<circle cx="12" cy="12" r="10" />
-								<path d="M6 12c0-1.7.7-3.2 1.8-4.2" />
-								<circle cx="12" cy="12" r="2" />
-								<path d="M18 12c0 1.7-.7 3.2-1.8 4.2" />
-							</svg>
-							<span id="objects">— objects</span>
-						</span>
-						<span>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								width="14"
-								height="14"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-							>
-								<polygon points="6 3 20 12 6 21 6 3" />
-							</svg>
-							<span id="plays">— plays</span>
-						</span>
-						<span id="length">Audio —:—</span>
+					<div class="pp-stats" id="pp-stats">
+						<span class="pp-label">PP at accuracy</span>
+						<div class="pp-grid" id="pp-grid"></div>
 					</div>
 				</div>
 			</section>
@@ -206,6 +176,7 @@
 			<footer class="bottom-bar">
 				<span>O!hana osu leaderboard viewer</span>
 				<span>
+					<a class="link" href="boards.html">custom boards</a>
 					<a
 						class="link"
 						href="https://osu.ppy.sh"
@@ -231,6 +202,6 @@
 			</footer>
 		</main>
 
-		<script src="/app.js"></script>
+		<script src="/main.js" type="module"></script>
 	</body>
 </html>

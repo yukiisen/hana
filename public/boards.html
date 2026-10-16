@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta name="color-scheme" content="light dark" />
+		<title>o!hana — Custom Leaderboards</title>
+		<meta
+			name="description"
+			content="Create custom leaderboards and add player names."
+		/>
+		<link rel="stylesheet" href="styles.css" />
+		<link rel="stylesheet" href="boards.css" />
+	</head>
+	<body class="boards-body">
+		<main class="boards-shell">
+			<header class="boards-top">
+				<a class="link" href="index.html">← Beatmap leaderboard</a>
+				<h1>Custom Leaderboards</h1>
+				<span class="dim">Keep your Leaderboards Small or peppy will get mad!!!</span>
+			</header>
+
+			<div class="boards-layout">
+				<aside class="boards-side">
+					<form class="side-form" id="new-board-form">
+						<input
+							id="new-board-name"
+							type="text"
+							maxlength="48"
+							placeholder="New leaderboard name"
+							autocomplete="off"
+							required
+						/>
+						<button type="submit">Create</button>
+					</form>
+					<p class="form-error" id="new-board-error" hidden></p>
+					<ul class="board-list" id="board-list"></ul>
+				</aside>
+
+				<section class="board-panel">
+					<div class="panel-heading">
+						<div>
+							<h2 id="board-title">No leaderboard selected</h2>
+							<p id="board-subtitle">Create one on the left to get started</p>
+						</div>
+						<button
+							type="button"
+							class="ghost danger"
+							id="delete-board"
+							hidden
+						>
+							Delete board
+						</button>
+					</div>
+
+					<form class="player-form" id="add-player-form" hidden>
+						<input
+							id="player-name"
+							type="text"
+							maxlength="32"
+							placeholder="Player name"
+							autocomplete="off"
+							required
+						/>
+						<button type="submit">Add player</button>
+					</form>
+					<p class="form-error" id="player-error" hidden></p>
+
+					<ol class="player-list" id="player-list"></ol>
+				</section>
+			</div>
+		</main>
+
+		<script src="brdmain.js" type="module"></script>
+	</body>
+</html>

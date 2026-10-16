@@ -20,7 +20,7 @@ body {
 body {
 	background: #241116;
 	color: #fff1f2;
-	font-family: Arial, Helvetica, sans-serif;
+	font-family: "Exo 2", sans-serif;
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
 }
@@ -78,6 +78,17 @@ button {
 	inset: 0;
 	background: rgba(18, 20, 22, 0.18);
 	pointer-events: none;
+}
+
+#background {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+	background-size: cover;
+	background-position: center;
+	background-repeat: no-repeat;
+
+    filter: brightness(50%) blur(.6rem);
 }
 
 .beatmap-head,
@@ -224,19 +235,48 @@ h1 {
 	font-size: 22px;
 	font-weight: 400;
 }
-.map-meta {
+.pp-stats {
 	display: flex;
 	flex-direction: column;
 	gap: 8px;
-	color: #c0adbd;
 	white-space: nowrap;
-	font-size: 11px;
-	min-width: 112px;
+	flex: none;
 }
-.map-meta > span {
+.pp-label {
+	font-size: 9px;
+	letter-spacing: 1px;
+	font-weight: 800;
+	text-transform: uppercase;
+	color: #aa94a9;
+}
+.pp-grid {
+	display: grid;
+	grid-template-columns: repeat(3, auto);
+	column-gap: 24px;
+	row-gap: 10px;
+	justify-content: end;
+}
+.pp-cell {
 	display: flex;
+	flex-direction: column;
 	align-items: center;
-	gap: 6px;
+	gap: 4px;
+}
+.pp-cell b {
+	font-size: 9px;
+	letter-spacing: 1px;
+	font-weight: 700;
+	color: #bca9ae;
+}
+.pp-cell strong {
+	font-size: 18px;
+	font-weight: 400;
+	color: var(--hot);
+}
+.pp-cell small {
+	font-size: 9px;
+	font-weight: 700;
+	color: #c5a46f;
 }
 
 .content-panel {
@@ -314,7 +354,7 @@ select {
 	grid-template-columns: 38px 34px 48px minmax(125px, 1.15fr) minmax(
 			230px,
 			1.3fr
-		) 150px 116px;
+		) 130px 116px;
 	align-items: center;
 	gap: 12px;
 	padding: 7px 12px 7px 9px;
@@ -550,7 +590,7 @@ select {
 		grid-template-columns: 32px 30px 45px minmax(105px, 1fr) minmax(
 				190px,
 				1.2fr
-			) 130px 100px;
+			) 100px 90px;
 		gap: 8px;
 		padding-right: 8px;
 	}
@@ -564,7 +604,7 @@ select {
 		padding-left: 20px;
 		padding-right: 20px;
 	}
-	.map-meta {
+	.map-stats {
 		display: none;
 	}
 	.content-panel {
@@ -600,9 +640,17 @@ select {
 }
 
 @media (max-width: 600px) {
-	.controls label,
-	.map-stats {
+	.controls label {
 		display: none;
+	}
+	.pp-label {
+		display: none;
+	}
+	.pp-grid {
+		gap: 6px 14px;
+	}
+	.pp-cell strong {
+		font-size: 15px;
 	}
 	.beatmap-head {
 		min-height: 150px;

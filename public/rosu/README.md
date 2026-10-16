@@ -1,0 +1,359 @@
+# rosu-pp-js
+
+Library to calculate difficulty and performance attributes for all [osu!] gamemodes.
+
+This is a js binding to the [Rust] library [rosu-pp] through [Wasm]. As such, its performance is
+much faster than a native js library.
+Since Wasm is used as intermediate layer, Rust doesn't even need to be installed.
+
+## Usage
+
+The library exposes multiple classes and interfaces:
+
+### [`Beatmap`](https://github.com/MaxOhn/rosu-pp-js/blob/c48a76d9f5a7ce68fc861e07e2b6bb2b06afb18f/rosu_pp_js.d.ts#L342-L380)
+
+Class containing a parsed `.osu` file, ready to be passed to difficulty and performance calculators.
+
+The constructor takes an object of type `Uint8Array | string` representing the content of a `.osu`
+file and throws an error if decoding the beatmap fails.
+
+⚠️WARNING⚠️
+
+Due to [current JavaScript oddities](https://github.com/rustwasm/wasm-bindgen/issues/3917), Wasm is not always able to track down objects' lifetime meaning it is possible that memory of unused instances might not get cleared automatically. Hence, to not risk leaking memory, it is recommended to free `Beatmap` instances manually when they're no longer needed with the `free(): void` method.
+
+To convert a beatmap use the `convert(GameMode): void` method.
+To check whether difficulty and/or performance calculation on a beatmap should be avoided, use the `isSuspicious(): void` method.
+
+`Beatmap` provides various getters:
+- `ar: number`
+- `bpm: number`
+- `cs: number`
+- `hp: number`
+- `isConvert: boolean`
+- `mode: GameMode`
+- `nBreaks: number`
+- `nCircles: number`
+- `nHolds: number`
+- `nObjects: number`
+- `nSliders: number`
+- `nSpinners: number`
+- `od: number`
+- `sliderMultiplier: number`
+- `sliderTickRate: number`
+- `stackLeniency: number`
+- `version: number`
+
+### [`Difficulty`](https://github.com/MaxOhn/rosu-pp-js/blob/c48a76d9f5a7ce68fc861e07e2b6bb2b06afb18f/rosu_pp_js.d.ts#L489-L530)
+
+Class to calculate [`DifficultyAttributes`](https://github.com/MaxOhn/rosu-pp-js/blob/c48a76d9f5a7ce68fc861e07e2b6bb2b06afb18f/rosu_pp_js.d.ts#L531-L784), [`Strains`](https://github.com/MaxOhn/rosu-pp-js/blob/c48a76d9f5a7ce68fc861e07e2b6bb2b06afb18f/rosu_pp_js.d.ts#L969-L1032), or create gradual calculators.
+
+The constructor takes *optional* [`DifficultyArgs`](https://github.com/MaxOhn/rosu-pp-js/blob/c48a76d9f5a7ce68fc861e07e2b6bb2b06afb18f/rosu_pp_js.d.ts#L115-L141)
+
+```ts
+{
+    // The type must be either
+    //   - an integer for bitflags (see https://github.com/ppy/osu-api/wiki#mods)
+    //   - a string for acronyms
+    //   - a single mod object as described below
+    //   - a sequence of types that deserialize into a single mod
+    //
+    // Types that deserialize into a single mod are
+    //   - an integer for bitflags
+    //   - a string for an acronym
+    //   - a mod object
+    //
+    // A mod object must have an `acronym: string` property and an optional
+    // `settings?: Object` property.
+    mods?: Object,
+    // Custom clock rate between 0.01 and 100
+    clockRate?: number,
+    // For osu!standard and osu!mania it's important to specify whether calculations
+    // are for lazer or stable scores.
+    lazer?: boolean,
+    // Custom approach rate between -20 and 20
+    ar?: number,
+    // Whether given `ar` should be used as is or adjusted based on mods
+    // i.e. `true` means "given ar already considers mods".
+    fixedAr?: boolean,
+    // Custom circle size between -20 and 20
+    cs?: number,
+    fixedCs?: boolean,
+    // Custom drain rate between -20 and 20
+    hp?: number,
+    fixedHp?: boolean,
+    // Custom overall difficulty between -20 and 20
+    od?: number,
+    fixedOd?: boolean,
+    // Amount of passed objects for partial plays, e.g. a fail
+    passedObjects?: number,
+    // Adjust patterns as if the HR mod is enabled on osu!catch maps
+    hardrockOffsets?: boolean,
+}
+```
+
+The following methods are available:
+
+- `calculate(Beatmap): DifficultyAttributes`: The difficulty attributes for the given parameters
+- `strains(Beatmap): Strains`: The strain values for the given parameters, suitable to plot difficulty over time
+- `gradualDifficulty(Beatmap): GradualDifficulty`: A gradual difficulty calculator
+- `gradualPerformance(Beatmap): GradualPerformance`: A gradual performance calculator
+
+### [`Performance`](https://github.com/MaxOhn/rosu-pp-js/blob/c48a76d9f5a7ce68fc861e07e2b6bb2b06afb18f/rosu_pp_js.d.ts#L836-L885)
+
+Calculator of [`PerformanceAttributes`](https://github.com/MaxOhn/rosu-pp-js/blob/c48a76d9f5a7ce68fc861e07e2b6bb2b06afb18f/rosu_pp_js.d.ts#L886-L968) whose constructor takes [`PerformanceArgs`](https://github.com/MaxOhn/rosu-pp-js/blob/c48a76d9f5a7ce68fc861e07e2b6bb2b06afb18f/rosu_pp_js.d.ts#L142-L222)
+
+```ts
+{
+    // ... same fields as for `Difficulty` but also:
+
+    // Accuracy between 0 and 100
+    accuracy?: number,
+    // The max combo of a play
+    combo?: number,
+    // The amount of gekis (n320 for mania)
+    nGeki?: number,
+    // The amount of katus (tiny droplet misses for catch, n200 for mania)
+    nKatu?: number,
+    // The amount of n300s
+    n300?: number,
+    // The amount of n100s
+    n100?: number,
+    // The amount of n50s
+    n50?: number,
+    // The amount of misses
+    misses?: number,
+    // Legacy total score for osu! scores on stable
+    legacyTotalScore?: number,
+    // The amount of "large tick" hits.
+    largeTickHits?: number,
+    // The amount of "small tick" hits.
+    smallTickHits?: number,
+    // The amount of slider end hits.
+    sliderEndHits?: number,
+    // Whether good or bad hitresults should be generated to fit the given accuracy
+    hitresultPriority?: HitResultPriority,
+}
+```
+
+Its method `setHitresultGenerator` takes a [`HitResultGenerator`](https://github.com/MaxOhn/rosu-pp-js/blob/c48a76d9f5a7ce68fc861e07e2b6bb2b06afb18f/rosu_pp_js.d.ts#L12-L24) and [`GameMode`](https://github.com/MaxOhn/rosu-pp-js/blob/c48a76d9f5a7ce68fc861e07e2b6bb2b06afb18f/rosu_pp_js.d.ts#L3-L11) and
+defines what the focus of hitresult generation should be, e.g. performance or speed.
+
+Its only other method `calculate(DifficultyAttributes | PerformanceAttributes | Beatmap): PerformanceAttributes`
+produces the performance attributes. The method's argument must be either the attributes of a
+previous calculation or a beatmap.
+
+Note that if a beatmap is given, difficulty attributes have to be calculated internally which is
+comparably expensive so passing attributes should be prefered whenever possible.
+
+However, be careful that the passed attributes have been calculated for the
+same difficulty settings like mods, clock rate, beatmap, custom ar, ...
+otherwise the final performance attributes will be incorrect.
+
+### [`GradualDifficulty`](https://github.com/MaxOhn/rosu-pp-js/blob/c48a76d9f5a7ce68fc861e07e2b6bb2b06afb18f/rosu_pp_js.d.ts#L785-L811)
+
+Class to calculate difficulty attributes after each hitobject.
+
+Its constructor takes a `Difficulty` and a `Beatmap`, it has a getter `nRemaining: number`, and the methods
+
+- `next(): DifficultyAttributes | undefined`: Process the next hitobject and return the difficulty attributes (or `undefined` if the last object has already been processed)
+- `nth(number): DifficultyAttributes | undefined`: Process the next `number - 1` hitobjects, i.e. `nth(0)` will process one, `nth(1)` will proces two, ...
+- `collect(): DifficultyAttributes[]`: Collect all remaining difficulty attributes into a list
+
+### [`GradualPerformance`](https://github.com/MaxOhn/rosu-pp-js/blob/c48a76d9f5a7ce68fc861e07e2b6bb2b06afb18f/rosu_pp_js.d.ts#L812-L835)
+
+Class to calculate performance attributes after each hitresult.
+
+Its constructor takes a `Difficulty` and a `Beatmap`, it has a getter `nRemaining: number`, and the methods
+
+- `next(ScoreState): PerformanceAttributes | undefined`: Process the next hitobject and return the performance attributes (or `undefined` if the last object has already been processed)
+- `nth(ScoreState, number): PerformanceAttributes | undefined`: Process the next `number - 1` hitobjects, i.e. `nth(0)` will process one, `nth(1)` will proces two, ...
+
+[`ScoreState`](https://github.com/MaxOhn/rosu-pp-js/blob/c48a76d9f5a7ce68fc861e07e2b6bb2b06afb18f/rosu_pp_js.d.ts#L38-L114) is an object like
+
+```ts
+{
+  maxCombo?: number,
+  misses?: number,
+  n100?: number,
+  n300?: number,
+  n50?: number,
+  nGeki?: number,
+  nKatu?: number,
+  osuLargeTickHits?: number,
+  osuSmallTickHits?: number,
+  sliderEndHits?: number,
+  legacyTotalScore?: number | null,
+}
+```
+
+### [`BeatmapAttributesBuilder`](https://github.com/MaxOhn/rosu-pp-js/blob/c48a76d9f5a7ce68fc861e07e2b6bb2b06afb18f/rosu_pp_js.d.ts#L462-L488)
+
+Class to calculate [`BeatmapAttributes`](https://github.com/MaxOhn/rosu-pp-js/blob/c48a76d9f5a7ce68fc861e07e2b6bb2b06afb18f/rosu_pp_js.d.ts#L381-L461) for various custom parameters.
+
+Its constructor takes [`BeatmapAttributeArgs`](https://github.com/MaxOhn/rosu-pp-js/blob/c48a76d9f5a7ce68fc861e07e2b6bb2b06afb18f/rosu_pp_js.d.ts#L30-L43)
+
+```ts
+{
+    // Start off with the given beatmap's attributes, mode, and convert status
+    map?: Beatmap,
+    // Specify a gamemode
+    mode?: GameMode,
+    // Whether the map is a convert, only relevant for mania
+    isConvert?: boolean,
+    mods?: Object,
+    clockRate?: number,
+    ar?: number,
+    fixedAr?: boolean,
+    cs?: number,
+    fixedCs?: boolean,
+    hp?: number,
+    fixedHp?: boolean,
+    od?: number,
+    fixedOd?: boolean,
+}
+```
+
+Its only method is `build(): BeatmapAttributes`.
+
+## Setters
+
+For the `Difficulty`, `Performance`, and `BeatmapAttributesBuilder` classes, each field of their constructor's argument object is also available as a setter afterwards which takes either a value of the field's type or `undefined` to unset the previously set value.
+
+```js
+import * as rosu from "rosu-pp-js";
+
+// Either given in the constructor
+let difficulty = new rosu.Difficulty({ clockRate: 1.23 });
+
+// Or adjusted afterwards
+difficulty.mods = 8;
+
+// Or even reset entirely
+difficulty.clockRate = undefined;
+```
+
+## Examples
+
+### Calculating performance
+
+```js
+import * as rosu from "rosu-pp-js";
+import * as fs from "fs";
+// or if you're using CommonJS:
+const rosu = require("rosu-pp-js");
+const fs = require("fs");
+
+const bytes = fs.readFileSync("/path/to/file.osu");
+
+// Parse the map.
+let map = new rosu.Beatmap(bytes);
+
+// Convert the beatmap to a specific mode for optionally given mods.
+map.convert(rosu.GameMode.Mania, "6K");
+
+// Whereas osu! simply times out on malicious maps, rosu-pp does not. To
+// prevent potential performance/memory issues, it is recommended to check
+// beforehand whether a map is too suspicious for further calculation.
+if (map.isSuspicious()) {
+    process.exit();
+}
+
+// Calculating performance attributes for a HDDT SS
+const maxAttrs = new rosu.Performance({ mods: 8 + 64 }).calculate(map);
+
+const perf = new rosu.Performance({
+    mods: "HDDT", // Must be the same as before in order to use the previous attributes!
+    misses: 2,
+    accuracy: 98.4,
+    combo: 567,
+    hitresultPriority: rosu.HitResultPriority.BestCase,
+});
+
+// For hitresult generation, use the `setHitresultGenerator` method.
+// The 'Closest' hitresult generation may be significantly slower but provides
+// hitresults that match the given accuracy as close as possible.
+perf.setHitresultGenerator(rosu.HitresultGenerator.Closest, rosu.GameMode.Osu);
+// Especially for mania, 'Closest' might be too slow in general so let's use
+// 'Fast' instead (which is the default anyway for all modes if unspecified).
+perf.setHitresultGenerator(rosu.HitresultGenerator.Fast, rosu.GameMode.Mania);
+
+// Calculating performance attributes for a specific score.
+const currAttrs = perf.calculate(maxAttrs); // Re-using previous attributes to speed up the calculation.
+
+console.log(`PP: ${currAttrs.pp}/${maxAttrs.pp} | Stars: ${maxAttrs.difficulty.stars}`);
+
+// Free the beatmap manually to avoid risking memory leakage.
+map.free();
+```
+
+### Gradual calculation
+
+```js
+import * as rosu from "rosu-pp-js";
+import * as fs from "fs";
+
+const content = fs.readFileSync("/path/to/file.osu", "utf-8");
+const map = new rosu.Beatmap(content);
+
+// Specifying some difficulty parameters
+const difficulty = new rosu.Difficulty({
+    mods: 16 + 64, // HRDT
+    clockRate: 1.1,
+    ar: 10.2,
+    fixedAr: true,
+    od: 4,
+    fixedOd: false,
+});
+
+// Gradually calculating *difficulty* attributes
+let gradualDiff = difficulty.gradualDifficulty(map);
+let i = 1;
+
+while (gradualDiff.nRemaining > 0) {
+    console.log(`Stars after ${i} hitobjects: ${gradualDiff.next()?.stars}`);
+    i += 1;
+}
+
+// Gradually calculating *performance* attributes
+let gradualPerf = difficulty.gradualPerformance(map);
+let j = 1;
+
+while (gradualPerf.nRemaining > 0) {
+    // Need to pass the current score state
+    const state = {
+        maxCombo: j,
+        n300: j,
+        n100: 0,
+        // ...
+    };
+
+    console.log(`PP: ${gradualPerf.next(state)?.pp}`);
+    j += 1;
+}
+
+map.free();
+```
+
+## Installing rosu-pp-js
+
+```sh
+$ npm install rosu-pp-js
+```
+
+or
+
+```sh
+$ npm install https://github.com/MaxOhn/rosu-pp-js/releases/download/v4.0.1/rosu_pp_js_nodejs.tar.gz
+```
+
+Note that apart from the `*_nodejs` version, the release page also includes `*_web` and `*_bundler` versions.
+
+## Learn More
+- [rosu-pp]
+- [Rust]
+- [Wasm]
+
+[osu!]: https://osu.ppy.sh/home
+[Rust]: https://www.rust-lang.org/
+[rosu-pp]: https://github.com/MaxOhn/rosu-pp
+[Wasm]: https://webassembly.org/

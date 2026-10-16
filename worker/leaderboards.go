@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/coder/websocket"
@@ -17,9 +18,10 @@ import (
 type LeaderboardWorker struct {
 	Clients 			*handler.ClientHandler
 	Api 				*Client // osu api
-	Leaderboards 		map[string][]string
+	Cfg 				*config.Config
 	UserIDs 			map[string]int
 	ActiveLeaderboard 	string
+	mu 					sync.Mutex
 }
 
 func NewLeadboardWorker(cfg *config.Config, clients *handler.ClientHandler) (*LeaderboardWorker, error) {
@@ -31,12 +33,12 @@ func NewLeadboardWorker(cfg *config.Config, clients *handler.ClientHandler) (*Le
 	l := &LeaderboardWorker{
 		Clients:           clients,
 		Api:               api,
-		Leaderboards:      cfg.Leaderboards,
+		Cfg:			   cfg,
 		UserIDs:           make(map[string]int),
 		ActiveLeaderboard: "friends",
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
 	if err := l.loadUserIDs(ctx); err != nil {
@@ -51,7 +53,7 @@ func (l *LeaderboardWorker) loadUserIDs(ctx context.Context) error {
 		Timeout: 10 * time.Second,
 	}
 
-	for _, usernames := range l.Leaderboards {
+	for _, usernames := range l.Cfg.Leaderboards() {
 		for _, username := range usernames {
 			if _, exists := l.UserIDs[username]; exists {
 				continue
@@ -92,7 +94,7 @@ func (l *LeaderboardWorker) loadUserIDs(ctx context.Context) error {
 			}
 
 			l.UserIDs[username] = user.ID
-			logger.Infof("Cached user ID: %s = %d", username, user.ID)
+			logger.Debugf("Cached user ID: %s = %d", username, user.ID)
 		}
 	}
 
@@ -106,6 +108,13 @@ type leaderboardMessage struct {
 }
 
 func (l *LeaderboardWorker) Load(ctx context.Context, beatmapID int32) error {
+	// wait for a while in case the user changes beatmap quickly
+	select {
+	case <-time.After(2 * time.Second):
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
 	name := l.ActiveLeaderboard
 
 	if name == "Global" {
@@ -129,7 +138,7 @@ func (l *LeaderboardWorker) Load(ctx context.Context, beatmapID int32) error {
 		})
 	}
 
-	usernames, ok := l.Leaderboards[name]
+	usernames, ok := l.Cfg.Leaderboards()[name]
 	if !ok {
 		return fmt.Errorf("unknown leaderboard %q", name)
 	}
@@ -188,4 +197,26 @@ func (l *LeaderboardWorker) broadcast(ctx context.Context, msg leaderboardMessag
 	l.Clients.Mu.Unlock()
 
 	return ctx.Err()
+}
+
+func (l *LeaderboardWorker) ChangeLeaderboard(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		ActiveLeaderboard string `json:"active_leaderboard"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "invalid JSON body", http.StatusBadRequest)
+		return
+	}
+
+	if body.ActiveLeaderboard == "" {
+		http.Error(w, "missing active_leaderboard", http.StatusBadRequest)
+		return
+	}
+
+	l.mu.Lock()
+	l.ActiveLeaderboard = body.ActiveLeaderboard
+	l.mu.Unlock()
+
+	w.WriteHeader(http.StatusNoContent)
 }
