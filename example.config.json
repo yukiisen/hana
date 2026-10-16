@@ -1,0 +1,11 @@
+{
+  "api": {
+    "client_id": 0,
+    "client_secret": "your_osu_oauth_client_secret"
+  },
+  "settings": {
+    "leaderboard_wait_time": "2s",
+    "score_cache_ttl": "5m"
+  },
+  "leaderboards": {}
+}

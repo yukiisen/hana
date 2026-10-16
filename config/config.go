@@ -1,4 +1,3 @@
-
 package config
 
 import (
@@ -7,10 +6,17 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
+)
+
+const (
+	defaultLeaderboardWaitTime = 2 * time.Second
+	defaultScoreCacheTTL       = 5 * time.Minute
 )
 
 type Config struct {
-	API APICredentials `json:"api"`
+	API      APICredentials `json:"api"`
+	Settings Settings       `json:"settings"`
 
 	mu           sync.RWMutex
 	path         string
@@ -22,8 +28,48 @@ type APICredentials struct {
 	ClientSecret string `json:"client_secret"`
 }
 
+// Settings holds tunable runtime options.
+type Settings struct {
+	// LeaderboardWaitTime is how long to wait for freshly fetched scores
+	// before starting to poll the API when a leaderboard has cache misses.
+	LeaderboardWaitTime Duration `json:"leaderboard_wait_time"`
+	// ScoreCacheTTL is how long a fetched score is served from the cache
+	// before it is fetched again.
+	ScoreCacheTTL Duration `json:"score_cache_ttl"`
+}
+
+// Duration is a time.Duration that marshals to and from a human-readable
+// string such as "2s" or "5m".
+type Duration time.Duration
+
+func (d Duration) MarshalJSON() ([]byte, error) {
+	return json.Marshal(time.Duration(d).String())
+}
+
+func (d *Duration) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return fmt.Errorf(`duration must be a string like "2s": %w`, err)
+	}
+	if s == "" {
+		return nil
+	}
+
+	parsed, err := time.ParseDuration(s)
+	if err != nil {
+		return err
+	}
+
+	*d = Duration(parsed)
+	return nil
+}
+
+// Std returns the value as a time.Duration.
+func (d Duration) Std() time.Duration { return time.Duration(d) }
+
 type fileConfig struct {
-	API          APICredentials     `json:"api"`
+	API          APICredentials      `json:"api"`
+	Settings     Settings            `json:"settings"`
 	Leaderboards map[string][]string `json:"leaderboards"`
 }
 
@@ -47,12 +93,37 @@ func Load(path string) (*Config, error) {
 	if disk.Leaderboards == nil {
 		disk.Leaderboards = make(map[string][]string)
 	}
+	if disk.Settings.LeaderboardWaitTime <= 0 {
+		disk.Settings.LeaderboardWaitTime = Duration(defaultLeaderboardWaitTime)
+	}
+	if disk.Settings.ScoreCacheTTL <= 0 {
+		disk.Settings.ScoreCacheTTL = Duration(defaultScoreCacheTTL)
+	}
 
 	return &Config{
 		API:          disk.API,
+		Settings:     disk.Settings,
 		path:         path,
 		leaderboards: disk.Leaderboards,
 	}, nil
+}
+
+// LeaderboardWaitTime returns the configured leaderboard wait time, falling
+// back to the default when unset.
+func (c *Config) LeaderboardWaitTime() time.Duration {
+	if c.Settings.LeaderboardWaitTime <= 0 {
+		return defaultLeaderboardWaitTime
+	}
+	return c.Settings.LeaderboardWaitTime.Std()
+}
+
+// ScoreCacheTTL returns the configured score cache lifetime, falling back to
+// the default when unset.
+func (c *Config) ScoreCacheTTL() time.Duration {
+	if c.Settings.ScoreCacheTTL <= 0 {
+		return defaultScoreCacheTTL
+	}
+	return c.Settings.ScoreCacheTTL.Std()
 }
 
 func (c *Config) Leaderboards() map[string][]string {
@@ -84,6 +155,7 @@ func (c *Config) Save() error {
 
 	data, err := json.MarshalIndent(fileConfig{
 		API:          c.API,
+		Settings:     c.Settings,
 		Leaderboards: c.leaderboards,
 	}, "", "  ")
 	if err != nil {

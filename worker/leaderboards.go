@@ -53,7 +53,7 @@ func NewLeadboardWorker(
 		Cfg:               cfg,
 		Store:             store,
 		ActiveLeaderboard: "friends",
-		scoreCache:        NewScoreCache(store, 5*time.Minute),
+		scoreCache:        NewScoreCache(store, cfg.ScoreCacheTTL()),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -244,7 +244,7 @@ func (l *LeaderboardWorker) Load(ctx context.Context, beatmapID int32) error {
     // No API requests if all scores were cached.
     if len(missing) > 0 {
     	select {
-    	case <-time.After(2 * time.Second):
+    	case <-time.After(l.Cfg.LeaderboardWaitTime()):
     	case <-ctx.Done():
     		return ctx.Err()
     	}
