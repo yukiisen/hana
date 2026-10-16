@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"embed"
 	"log"
 	"net/http"
 	"os"
@@ -22,6 +23,9 @@ import (
 func dataPath() string {
 	return path.Join(os.Getenv("HOME"), ".local/share/osu/files")
 }
+
+//go:embed public/*
+var publicFS embed.FS
 
 func main() {
 	mux := http.NewServeMux()
@@ -72,7 +76,7 @@ func main() {
 		http.StripPrefix("/lazer/", http.FileServer(http.Dir(dataPath()))),
 	)
 
-	mux.Handle("/", http.FileServer(http.Dir("./public/")))
+	mux.Handle("/", http.FileServer(http.FS(publicFS)))
 
 	server := &http.Server{Addr: ":8080", Handler: mux}
 
