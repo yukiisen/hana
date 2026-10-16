@@ -3,8 +3,8 @@ package worker
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -17,6 +17,9 @@ import (
 
 const tokenURL = "https://osu.ppy.sh/oauth/token"
 const baseURL = "https://osu.ppy.sh/api/v2"
+
+// apiLog scopes osu! API messages so they are tagged [api].
+var apiLog = logger.New(logger.LevelInfo).WithScope("api")
 
 type Token struct {
 	AccessToken string `json:"access_token"`
@@ -115,7 +118,7 @@ func (c *Client) renewToken(ctx context.Context) error {
 
 	token, err := GenerateToken(ctx, c.clientID, c.clientSecret)
 	if err != nil {
-		logger.Errorf("renew osu! token: %v", err)
+		apiLog.Errorf("renew osu! token: %v", err)
 		return err
 	}
 
@@ -123,6 +126,8 @@ func (c *Client) renewToken(ctx context.Context) error {
 	c.expiresAt = time.Now().Add(
 		time.Duration(token.ExpiresIn) * time.Second,
 	)
+
+	apiLog.Infof("Renewed osu! OAuth token (expires in %ds)", token.ExpiresIn)
 
 	return nil
 }
@@ -163,25 +168,25 @@ func (c *Client) Do(
 }
 
 func (c *Client) GetJSON(
-    ctx context.Context,
-    path string,
-    dst any,
+	ctx context.Context,
+	path string,
+	dst any,
 ) error {
-    resp, err := c.Do(ctx, http.MethodGet, path)
-    if err != nil {
-        return err
-    }
-    defer resp.Body.Close()
+	resp, err := c.Do(ctx, http.MethodGet, path)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
 
-    if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return errors.New("OSUAPI HTTP Status " + resp.Status)
-    }
+	}
 
-    if err := json.NewDecoder(resp.Body).Decode(dst); err != nil {
-        return fmt.Errorf("decode osu! API response: %w", err)
-    }
+	if err := json.NewDecoder(resp.Body).Decode(dst); err != nil {
+		return fmt.Errorf("decode osu! API response: %w", err)
+	}
 
-    return nil
+	return nil
 }
 
 func (c *Client) waitRateLimit(ctx context.Context) error {
@@ -218,29 +223,28 @@ func (c *Client) ClientID() string {
 	return strconv.Itoa(c.clientID)
 }
 
-
 type Score struct {
-	ID                  int64             `json:"id"`
-	UserID              int               `json:"user_id"`
-	BeatmapID           int               `json:"beatmap_id"`
-	Accuracy            float64           `json:"accuracy"`
-	Mods                []Mod             `json:"mods"`
-	MaxCombo            int               `json:"max_combo"`
-	IsPerfectCombo      bool              `json:"is_perfect_combo"`
-	LegacyPerfect       bool              `json:"legacy_perfect"`
-	Passed              bool              `json:"passed"`
-	PP                  *float64          `json:"pp"`
-	Rank                string            `json:"rank"`
-	EndedAt             time.Time         `json:"ended_at"`
-	HasReplay           bool              `json:"has_replay"`
-	LegacyScoreID       *int64            `json:"legacy_score_id"`
-	LegacyTotalScore    int64             `json:"legacy_total_score"`
-	ClassicTotalScore   *int64            `json:"classic_total_score"`
-	TotalScore          int64             `json:"total_score"`
+	ID                    int64           `json:"id"`
+	UserID                int             `json:"user_id"`
+	BeatmapID             int             `json:"beatmap_id"`
+	Accuracy              float64         `json:"accuracy"`
+	Mods                  []Mod           `json:"mods"`
+	MaxCombo              int             `json:"max_combo"`
+	IsPerfectCombo        bool            `json:"is_perfect_combo"`
+	LegacyPerfect         bool            `json:"legacy_perfect"`
+	Passed                bool            `json:"passed"`
+	PP                    *float64        `json:"pp"`
+	Rank                  string          `json:"rank"`
+	EndedAt               time.Time       `json:"ended_at"`
+	HasReplay             bool            `json:"has_replay"`
+	LegacyScoreID         *int64          `json:"legacy_score_id"`
+	LegacyTotalScore      int64           `json:"legacy_total_score"`
+	ClassicTotalScore     *int64          `json:"classic_total_score"`
+	TotalScore            int64           `json:"total_score"`
 	TotalScoreWithoutMods *int64          `json:"total_score_without_mods"`
-	Type                string            `json:"type"`
-	Statistics          map[string]*int   `json:"statistics"`
-	User                *User             `json:"user"`
+	Type                  string          `json:"type"`
+	Statistics            map[string]*int `json:"statistics"`
+	User                  *User           `json:"user"`
 }
 
 type Mod struct {

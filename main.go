@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"embed"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -27,33 +26,50 @@ func dataPath() string {
 //go:embed public/*
 var publicFS embed.FS
 
+// serverLog scopes top-level lifecycle messages so they are tagged [server].
+var serverLog = logger.New(logger.LevelInfo).WithScope("server")
+
 func main() {
 	mux := http.NewServeMux()
 
 	configPath, err := paths.ConfigFile("config.json")
-	if err != nil { log.Fatal(err) }
+	if err != nil {
+		serverLog.Errorf("%v", err)
+		os.Exit(1)
+	}
 
 	config, err := config.Load(configPath)
-	if err != nil { log.Fatal(err) }
+	if err != nil {
+		serverLog.Errorf("%v", err)
+		os.Exit(1)
+	}
+	serverLog.Infof("Loaded config from %s", configPath)
 
 	cachePath, err := paths.CacheFile("cache.json")
-	if err != nil { log.Fatal(err) }
+	if err != nil {
+		serverLog.Errorf("%v", err)
+		os.Exit(1)
+	}
 
 	store, err := cache.Load(cachePath)
 	if err != nil {
-		logger.Warnf("Failed to load cache.json, starting fresh: %v", err)
+		serverLog.Warnf("Failed to load cache.json, starting fresh: %v", err)
 		store = cache.New(cachePath)
 	}
+	serverLog.Infof("Loaded cache from %s (%d user IDs)", cachePath, store.UserIDCount())
 	defer func() {
 		if err := store.Save(); err != nil {
-			logger.Errorf("Failed to persist cache: %v", err)
+			serverLog.Errorf("Failed to persist cache: %v", err)
 		}
 	}()
 
-	clientMan := handler.ClientHandler {}
+	clientMan := handler.ClientHandler{}
 
 	leaderboardWorker, err := worker.NewLeadboardWorker(config, store, &clientMan)
-	if err != nil { log.Fatal(err) }
+	if err != nil {
+		serverLog.Errorf("%v", err)
+		os.Exit(1)
+	}
 	defer leaderboardWorker.Close()
 
 	gameWorker := worker.NewGameWorker(&clientMan, leaderboardWorker)
@@ -63,8 +79,8 @@ func main() {
 	wg.Add(1)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel();
-	go gameWorker.Run(&wg, ctx);
+	defer cancel()
+	go gameWorker.Run(&wg, ctx)
 
 	mux.HandleFunc("/ws", clientMan.Connection)
 
@@ -81,18 +97,23 @@ func main() {
 	server := &http.Server{Addr: ":8080", Handler: mux}
 
 	go func() {
-		logger.Infof("Listening on port %s", server.Addr)
+		serverLog.Infof("Listening on port %s", server.Addr)
 
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("listen: %s\n", err)
+			serverLog.Errorf("HTTP server stopped: %v", err)
+			os.Exit(1)
 		}
 	}()
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
+	sig := <-quit
+	serverLog.Infof("Received %s, shutting down...", sig)
 
 	s_ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	server.Shutdown(s_ctx)
+	if err := server.Shutdown(s_ctx); err != nil {
+		serverLog.Errorf("HTTP server shutdown: %v", err)
+	}
+	serverLog.Infof("Shutdown complete")
 }

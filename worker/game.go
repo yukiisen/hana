@@ -3,8 +3,8 @@ package worker
 import (
 	"context"
 	"encoding/json"
-	"net/http"
 	"errors"
+	"net/http"
 	"sync"
 	"time"
 
@@ -14,22 +14,30 @@ import (
 	"github.com/yukiisen/ohana/osumem"
 )
 
+// gameLog scopes worker messages so they are tagged [game] in the output.
+var gameLog = logger.New(logger.LevelInfo).WithScope("game")
+
 type GameWorker struct {
-	game osumem.Client
-	clients 	*handler.ClientHandler
-	beatmap 	*osumem.BeatmapInfo
-	lbw 		*LeaderboardWorker
-	cancelLb 	context.CancelFunc
-	mu			sync.Mutex
+	game     osumem.Client
+	clients  *handler.ClientHandler
+	beatmap  *osumem.BeatmapInfo
+	lbw      *LeaderboardWorker
+	cancelLb context.CancelFunc
+	mu       sync.Mutex
 }
 
 func NewGameWorker(c *handler.ClientHandler, lbw *LeaderboardWorker) *GameWorker {
-	return &GameWorker { clients: c, lbw: lbw, cancelLb: func() {} }
+	return &GameWorker{clients: c, lbw: lbw, cancelLb: func() {}}
 }
 
 func (g *GameWorker) Run(wg *sync.WaitGroup, ctx context.Context) {
 	defer wg.Done()
-	defer func () { if g.game != nil { g.game.Close(); g.game = nil } }()
+	defer func() {
+		if g.game != nil {
+			g.game.Close()
+			g.game = nil
+		}
+	}()
 	defer func() {
 		g.mu.Lock()
 		g.cancelLb()
@@ -39,9 +47,9 @@ func (g *GameWorker) Run(wg *sync.WaitGroup, ctx context.Context) {
 	lastCount := g.clients.Count()
 
 	for {
-		if ctx.Err() != nil { 
-			logger.Infof("Logger thread closing..")
-			return 
+		if ctx.Err() != nil {
+			gameLog.Infof("Stopping game worker")
+			return
 		}
 
 		if g.game == nil {
@@ -52,7 +60,7 @@ func (g *GameWorker) Run(wg *sync.WaitGroup, ctx context.Context) {
 		select {
 		case <-time.After(400 * time.Millisecond):
 		case <-ctx.Done():
-			logger.Infof("Logger thread closing..")
+			gameLog.Infof("Stopping game worker")
 			return
 		}
 
@@ -60,20 +68,31 @@ func (g *GameWorker) Run(wg *sync.WaitGroup, ctx context.Context) {
 
 		info, err := g.game.Beatmap()
 		if err != nil {
-			logger.Errorf("%v", err)
-			if errors.Is(err, osumem.ErrProcessGone) { g.game.Close(); g.game = nil }
+			if errors.Is(err, osumem.ErrProcessGone) {
+				gameLog.Infof("osu! client exited; waiting for a new client")
+				g.game.Close()
+				g.game = nil
+			} else {
+				gameLog.Errorf("%v", err)
+			}
 			g.mu.Unlock()
 			continue
-		} 
+		}
 
 		if g.beatmap != nil && info.MapID == g.beatmap.MapID && lastCount == g.clients.Count() {
 			g.mu.Unlock()
 			continue
 		}
 
+		changed := g.beatmap == nil || info.MapID != g.beatmap.MapID
+
 		g.cancelLb()
 		g.beatmap = info
 		mapID := info.MapID
+
+		if changed {
+			gameLog.Infof("Beatmap changed: %s - %s (map %d)", info.Artist, info.Title, mapID)
+		}
 
 		msg, err := json.Marshal(map[string]any{
 			"type": "Beatmap",
@@ -81,7 +100,7 @@ func (g *GameWorker) Run(wg *sync.WaitGroup, ctx context.Context) {
 		})
 
 		if err != nil {
-			logger.Errorf("%v", err)
+			gameLog.Errorf("%v", err)
 			g.mu.Unlock()
 			continue
 		}
@@ -91,7 +110,7 @@ func (g *GameWorker) Run(wg *sync.WaitGroup, ctx context.Context) {
 
 		for _, c := range g.clients.Clients {
 			if err := c.Write(ctx, websocket.MessageText, msg); err != nil {
-				logger.Errorf("%v", err)
+				gameLog.Errorf("%v", err)
 			}
 		}
 
@@ -102,6 +121,9 @@ func (g *GameWorker) Run(wg *sync.WaitGroup, ctx context.Context) {
 		g.mu.Unlock()
 
 		if !isRanked(int(info.RankedStatus)) {
+			if changed {
+				gameLog.Infof("Beatmap %d is not ranked; skipping leaderboard", mapID)
+			}
 			continue
 		}
 
@@ -117,8 +139,8 @@ func (g *GameWorker) loadGame(ctx context.Context) {
 	game, err := osumem.Open()
 
 	if err != nil {
-		logger.Errorf("Could not find a running osu client, please make sure your game is open.")
-		logger.Errorf("%v", err)
+		gameLog.Infof("Waiting for a running osu! client...")
+		gameLog.Debugf("%v", err)
 
 		select {
 		case <-ctx.Done():
@@ -126,11 +148,10 @@ func (g *GameWorker) loadGame(ctx context.Context) {
 		}
 
 	} else {
-		logger.Infof("Connected to %s client at pid %d", game.Kind(), game.PID())
+		gameLog.Infof("Connected to %s client at pid %d", game.Kind(), game.PID())
 		g.game = game
 	}
 }
-
 
 func (g *GameWorker) ChangeLeaderboard(w http.ResponseWriter, r *http.Request) {
 	var body struct {
@@ -151,10 +172,13 @@ func (g *GameWorker) ChangeLeaderboard(w http.ResponseWriter, r *http.Request) {
 	g.lbw.ActiveLeaderboard = body.ActiveLeaderboard
 	g.lbw.mu.Unlock()
 
+	gameLog.Infof("Active leaderboard changed to %q", body.ActiveLeaderboard)
+
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
 	if g.beatmap == nil {
+		gameLog.Warnf("No active beatmap; %q will apply on the next map change", body.ActiveLeaderboard)
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
@@ -191,11 +215,16 @@ func (g *GameWorker) UpdateLeaderboards(w http.ResponseWriter, r *http.Request) 
 	g.lbw.Cfg.SetLeaderboards(boards)
 
 	if err := g.lbw.Cfg.Save(); err != nil {
+		gameLog.Errorf("Failed to save leaderboards: %v", err)
 		http.Error(w, "failed to save leaderboards", http.StatusInternalServerError)
 		return
 	}
 
+	gameLog.Infof("Updated leaderboards (%d board(s))", len(boards))
+
 	w.WriteHeader(http.StatusNoContent)
 
-	g.lbw.LoadUserIDs(context.Background())
+	if err := g.lbw.LoadUserIDs(context.Background()); err != nil {
+		gameLog.Errorf("Failed to load user IDs: %v", err)
+	}
 }
