@@ -127,8 +127,7 @@ func (c *Client) renewToken(ctx context.Context) error {
 	return nil
 }
 
-// Do sends an authenticated request to an API v2 endpoint.
-// Pass paths such as "/users/2".
+// sends an authenticated request to an API v2 endpoint.
 func (c *Client) Do(
 	ctx context.Context,
 	method string,
@@ -175,13 +174,11 @@ func (c *Client) GetJSON(
     defer resp.Body.Close()
 
     if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-        logger.Errorf("osu! API returned %s", resp.Status)
-		return errors.New("HTTP Status " + resp.Status)
+		return errors.New("OSUAPI HTTP Status " + resp.Status)
     }
 
     if err := json.NewDecoder(resp.Body).Decode(dst); err != nil {
-        logger.Errorf("decode osu! API response: %w", err)
-		return err
+        return fmt.Errorf("decode osu! API response: %w", err)
     }
 
     return nil

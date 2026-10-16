@@ -5,7 +5,29 @@ await init();
 
 const ws = new WebSocket(`ws://${location.host}/ws`);
 
-let activeLb = []
+const scope = document.getElementById("scope");
+const res = await fetch("/leaderboards");
+const boards = await res.json();
+
+scope.innerHTML += `<option value="Global">Global</option>`
+
+for (const board of Object.keys(boards)) {
+    scope.innerHTML += `<option value="${board}">${board}</option>`
+}
+
+scope.onchange = async () => {
+    const res = await fetch("/leaderboard", {
+        method: "PUT",
+        body: JSON.stringify({
+            active_leaderboard: scope.value
+        })
+    })
+
+    console.log(res.status, res.statusText)
+}
+
+let activeLb = [];
+let activeName = "Global";
 
 ws.onopen = () => {
     console.log("Connected!");
@@ -19,7 +41,10 @@ ws.onmessage = async (event) => {
         setBeatmap(ev.data);
         activeLb = [];
     } else if (ev.type == "Leaderboard") {
+        if (activeName !== ev.leaderboard) activeLb = [];
         activeLb.push(...ev.data);
+        scope.value = ev.leaderboard;
+        activeName = ev.leaderboard;
     }
 
     setLeaderboard(activeLb.sort((a, b) => b.total_score - a.total_score));
@@ -33,6 +58,7 @@ ws.onclose = () => {
 ws.onerror = (err) => {
     console.error("WebSocket error:", err);
 };
+
 
 const PP_ACCS = [95, 97, 98, 99, 100];
 

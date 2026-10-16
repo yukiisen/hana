@@ -31,6 +31,7 @@ func main() {
 
 	leaderboardWorker, err := worker.NewLeadboardWorker(config, &clientMan)
 	if err != nil { log.Fatal(err) }
+	defer leaderboardWorker.Wg.Wait()
 
 	gameWorker := worker.NewGameWorker(&clientMan, leaderboardWorker)
 
@@ -43,9 +44,15 @@ func main() {
 	go gameWorker.Run(&wg, ctx);
 
 	mux.HandleFunc("/ws", clientMan.Connection)
+
+	mux.HandleFunc("PUT /leaderboard", gameWorker.ChangeLeaderboard)
+	mux.HandleFunc("PUT /leaderboards", gameWorker.UpdateLeaderboards)
+	mux.HandleFunc("GET /leaderboards", gameWorker.GetLeaderboards)
+
 	mux.Handle("/lazer/",
 		http.StripPrefix("/lazer/", http.FileServer(http.Dir(dataPath()))),
 	)
+
 	mux.Handle("/", http.FileServer(http.Dir("./public/")))
 
 	server := &http.Server{Addr: ":8080", Handler: mux}

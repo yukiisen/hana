@@ -16,12 +16,17 @@ import (
 )
 
 type LeaderboardWorker struct {
-	Clients 			*handler.ClientHandler
-	Api 				*Client // osu api
-	Cfg 				*config.Config
-	UserIDs 			map[string]int
-	ActiveLeaderboard 	string
-	mu 					sync.Mutex
+	Clients *handler.ClientHandler
+	Api     *Client
+	Cfg     *config.Config
+
+	userIDsMu sync.RWMutex
+	userIDs   map[string]int
+
+	ActiveLeaderboard string
+	scoreCache        *ScoreCache
+	mu                sync.Mutex
+	Wg                sync.WaitGroup
 }
 
 func NewLeadboardWorker(cfg *config.Config, clients *handler.ClientHandler) (*LeaderboardWorker, error) {
@@ -34,28 +39,37 @@ func NewLeadboardWorker(cfg *config.Config, clients *handler.ClientHandler) (*Le
 		Clients:           clients,
 		Api:               api,
 		Cfg:			   cfg,
-		UserIDs:           make(map[string]int),
+		userIDs:           make(map[string]int),
 		ActiveLeaderboard: "friends",
+		scoreCache:		   NewScoreCache(5 * time.Minute),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	if err := l.loadUserIDs(ctx); err != nil {
+	if err := l.LoadUserIDs(ctx); err != nil {
 		return nil, err
 	}
 
 	return l, nil
 }
 
-func (l *LeaderboardWorker) loadUserIDs(ctx context.Context) error {
+func (l *LeaderboardWorker) UserID(username string) (int, bool) {
+	l.userIDsMu.RLock()
+	defer l.userIDsMu.RUnlock()
+
+	id, ok := l.userIDs[username]
+	return id, ok
+}
+
+func (l *LeaderboardWorker) LoadUserIDs(ctx context.Context) error {
 	httpClient := &http.Client{
 		Timeout: 10 * time.Second,
 	}
 
 	for _, usernames := range l.Cfg.Leaderboards() {
 		for _, username := range usernames {
-			if _, exists := l.UserIDs[username]; exists {
+			if _, exists := l.userIDs[username]; exists {
 				continue
 			}
 
@@ -93,36 +107,34 @@ func (l *LeaderboardWorker) loadUserIDs(ctx context.Context) error {
 					username, user.ID)
 			}
 
-			l.UserIDs[username] = user.ID
+			l.userIDsMu.Lock()
+			l.userIDs[username] = user.ID
+			l.userIDsMu.Unlock()
+
 			logger.Debugf("Cached user ID: %s = %d", username, user.ID)
 		}
 	}
 
-	logger.Infof("Cached %d user IDs", len(l.UserIDs))
+	logger.Infof("Cached %d user IDs", len(l.userIDs))
 	return nil
 }
 
 type leaderboardMessage struct {
 	Type string  `json:"type"`
+	Leaderboard string `json:"leaderboard"`
 	Data []Score `json:"data"`
 }
 
 func (l *LeaderboardWorker) Load(ctx context.Context, beatmapID int32) error {
-	// wait for a while in case the user changes beatmap quickly
-	select {
-	case <-time.After(2 * time.Second):
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-
+	l.mu.Lock()
 	name := l.ActiveLeaderboard
+	l.mu.Unlock()
 
 	if name == "Global" {
 		var result BeatmapScores
 		path := fmt.Sprintf("/beatmaps/%d/scores", beatmapID)
 
 		if err := l.Api.GetJSON(ctx, path, &result); err != nil {
-			logger.Errorf("Failed to fetch global leaderboard: %v", err)
 			return fmt.Errorf("fetch global leaderboard: %w", err)
 		}
 
@@ -130,48 +142,117 @@ func (l *LeaderboardWorker) Load(ctx context.Context, beatmapID int32) error {
 			return err
 		}
 
-		logger.Infof("Loaded global leaderboard for beatmap %d (%d scores)", beatmapID, len(result.Scores))
+		logger.Infof(
+			"Loaded global leaderboard for beatmap %d (%d scores)",
+			beatmapID, len(result.Scores),
+		)
 
 		return l.broadcast(ctx, leaderboardMessage{
 			Type: "Leaderboard",
+			Leaderboard: name,
 			Data: result.Scores,
 		})
 	}
 
-	usernames, ok := l.Cfg.Leaderboards()[name]
-	if !ok {
-		return fmt.Errorf("unknown leaderboard %q", name)
-	}
+    usernames, ok := l.Cfg.Leaderboards()[name]
+    if !ok {
+    	return fmt.Errorf("unknown leaderboard %q", name)
+    }
+    
+    scores := 0
+    missing := make([]string, 0)
+    
+    // Serve cached scores immediately; collect cache misses.
+    for _, username := range usernames {
+    	if err := ctx.Err(); err != nil {
+    		return err
+    	}
+    
+    	userID, ok := l.UserID(username)
+    	if !ok {
+    		logger.Errorf("No cached user ID for %q", username)
+    		continue
+    	}
+    
+    	score, ok := l.scoreCache.Get(int(beatmapID), userID)
+    	if !ok {
+    		missing = append(missing, username)
+    		continue
+    	}
+    
+    	if err := l.broadcast(ctx, leaderboardMessage{
+    		Type:        "Leaderboard",
+    		Leaderboard: name,
+    		Data:        []Score{score},
+    	}); err != nil {
+    		return err
+    	}
+    
+    	scores++
+    }
+    
+    // No API requests if all scores were cached.
+    if len(missing) > 0 {
+    	select {
+    	case <-time.After(2 * time.Second):
+    	case <-ctx.Done():
+    		return ctx.Err()
+    	}
+    }
+    
+    // Fetch only the scores that weren't cached.
+    for _, username := range missing {
+    	if err := ctx.Err(); err != nil {
+    		return err
+    	}
+    
+    	userID, ok := l.UserID(username)
+    	if !ok {
+    		continue
+    	}
+    
+    	var result BeatmapUserScore
+    	path := fmt.Sprintf(
+    		"/beatmaps/%d/scores/users/%d",
+    		beatmapID,
+    		userID,
+    	)
+    
+    	if err := l.Api.GetJSON(ctx, path, &result); err != nil {
+    		if ctx.Err() != nil {
+    			return ctx.Err()
+    		}
+    
+    		// logger.Errorf(
+    		// 	"Failed to fetch score for %q on beatmap %d: %v",
+    		// 	username, beatmapID, err,
+    		// )
+    		continue
+    	}
+    
+    	if err := ctx.Err(); err != nil {
+    		return err
+    	}
+    
+    	score := result.Score
+    	l.scoreCache.Set(score)
+    
+    	if err := l.broadcast(ctx, leaderboardMessage{
+    		Type:        "Leaderboard",
+    		Leaderboard: name,
+    		Data:        []Score{score},
+    	}); err != nil {
+    		return err
+    	}
+    
+    	scores++
+    }
+    
+    logger.Infof(
+    	"Finished loading leaderboard %q for beatmap %d (%d scores)",
+    	name, beatmapID, scores,
+    )
 
-	scores := 0
-
-	for _, username := range usernames {
-        userID, ok := l.UserIDs[username]
-        if !ok {
-        	logger.Errorf("No cached user ID for %q", username)
-        	continue
-        }
-        
-        var result BeatmapUserScore
-        path := fmt.Sprintf("/beatmaps/%d/scores/users/%d", beatmapID, userID)
-        
-        if err := l.Api.GetJSON(ctx, path, &result); err != nil {
-        	logger.Errorf("Failed to fetch score for %q on beatmap %d: %v",
-        		username, beatmapID, err)
-        	continue
-        }
-        
-        if err := l.broadcast(ctx, leaderboardMessage{
-        	Type: "Leaderboard",
-        	Data: []Score{result.Score},
-        }); err != nil {
-        	return err
-        }
-
-		scores++
-	}
-
-	logger.Infof("Finished loading leaderboard %q for beatmap %d (%d scores)", name, beatmapID, scores)
 	return nil
 }
 
@@ -197,26 +278,4 @@ func (l *LeaderboardWorker) broadcast(ctx context.Context, msg leaderboardMessag
 	l.Clients.Mu.Unlock()
 
 	return ctx.Err()
-}
-
-func (l *LeaderboardWorker) ChangeLeaderboard(w http.ResponseWriter, r *http.Request) {
-	var body struct {
-		ActiveLeaderboard string `json:"active_leaderboard"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		http.Error(w, "invalid JSON body", http.StatusBadRequest)
-		return
-	}
-
-	if body.ActiveLeaderboard == "" {
-		http.Error(w, "missing active_leaderboard", http.StatusBadRequest)
-		return
-	}
-
-	l.mu.Lock()
-	l.ActiveLeaderboard = body.ActiveLeaderboard
-	l.mu.Unlock()
-
-	w.WriteHeader(http.StatusNoContent)
 }
