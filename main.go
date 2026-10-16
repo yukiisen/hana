@@ -15,6 +15,7 @@ import (
 	"github.com/yukiisen/ohana/config"
 	"github.com/yukiisen/ohana/handler"
 	"github.com/yukiisen/ohana/logger"
+	"github.com/yukiisen/ohana/paths"
 	"github.com/yukiisen/ohana/worker"
 )
 
@@ -25,13 +26,19 @@ func dataPath() string {
 func main() {
 	mux := http.NewServeMux()
 
-	config, err := config.Load("config.json")
+	configPath, err := paths.ConfigFile("config.json")
 	if err != nil { log.Fatal(err) }
 
-	store, err := cache.Load("cache.json")
+	config, err := config.Load(configPath)
+	if err != nil { log.Fatal(err) }
+
+	cachePath, err := paths.CacheFile("cache.json")
+	if err != nil { log.Fatal(err) }
+
+	store, err := cache.Load(cachePath)
 	if err != nil {
 		logger.Warnf("Failed to load cache.json, starting fresh: %v", err)
-		store = cache.New("cache.json")
+		store = cache.New(cachePath)
 	}
 	defer func() {
 		if err := store.Save(); err != nil {
