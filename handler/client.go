@@ -13,6 +13,14 @@ type ClientHandler struct {
 	Clients []*ws.Conn
 }
 
+// Count returns the number of connected clients.
+func (h *ClientHandler) Count() int {
+	h.Mu.Lock()
+	defer h.Mu.Unlock()
+
+	return len(h.Clients)
+}
+
 func (h *ClientHandler) Connection(w http.ResponseWriter, r *http.Request) {
 	conn, err := ws.Accept(w, r, nil)
 	if err != nil {

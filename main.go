@@ -43,7 +43,7 @@ func main() {
 
 	leaderboardWorker, err := worker.NewLeadboardWorker(config, store, &clientMan)
 	if err != nil { log.Fatal(err) }
-	defer leaderboardWorker.Wg.Wait()
+	defer leaderboardWorker.Close()
 
 	gameWorker := worker.NewGameWorker(&clientMan, leaderboardWorker)
 

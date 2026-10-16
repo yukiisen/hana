@@ -30,7 +30,13 @@ func NewGameWorker(c *handler.ClientHandler, lbw *LeaderboardWorker) *GameWorker
 func (g *GameWorker) Run(wg *sync.WaitGroup, ctx context.Context) {
 	defer wg.Done()
 	defer func () { if g.game != nil { g.game.Close(); g.game = nil } }()
-	defer g.cancelLb()
+	defer func() {
+		g.mu.Lock()
+		g.cancelLb()
+		g.mu.Unlock()
+	}()
+
+	lastCount := g.clients.Count()
 
 	for {
 		if ctx.Err() != nil { 
@@ -54,19 +60,20 @@ func (g *GameWorker) Run(wg *sync.WaitGroup, ctx context.Context) {
 
 		info, err := g.game.Beatmap()
 		if err != nil {
-			logger.Errorf(err.Error())
+			logger.Errorf("%v", err)
 			if errors.Is(err, osumem.ErrProcessGone) { g.game.Close(); g.game = nil }
 			g.mu.Unlock()
 			continue
 		} 
 
-		if g.beatmap != nil && info.MapID == g.beatmap.MapID {
+		if g.beatmap != nil && info.MapID == g.beatmap.MapID && lastCount == g.clients.Count() {
 			g.mu.Unlock()
 			continue
 		}
 
 		g.cancelLb()
 		g.beatmap = info
+		mapID := info.MapID
 
 		msg, err := json.Marshal(map[string]any{
 			"type": "Beatmap",
@@ -74,18 +81,17 @@ func (g *GameWorker) Run(wg *sync.WaitGroup, ctx context.Context) {
 		})
 
 		if err != nil {
-			logger.Errorf(err.Error())
+			logger.Errorf("%v", err)
 			g.mu.Unlock()
 			continue
 		}
 
 		g.clients.Mu.Lock()
+		lastCount = len(g.clients.Clients)
 
 		for _, c := range g.clients.Clients {
-			err = c.Write(ctx, websocket.MessageText, msg)
-
-			if err != nil {
-				logger.Errorf(err.Error())
+			if err := c.Write(ctx, websocket.MessageText, msg); err != nil {
+				logger.Errorf("%v", err)
 			}
 		}
 
@@ -95,13 +101,16 @@ func (g *GameWorker) Run(wg *sync.WaitGroup, ctx context.Context) {
 		g.cancelLb = cancel
 		g.mu.Unlock()
 
-		g.lbw.Wg.Add(1)
-		go func () {
-			g.lbw.Load(workerCtx, info.MapID)
-			g.lbw.Wg.Done()
-		}()
+		if !isRanked(int(info.RankedStatus)) {
+			continue
+		}
 
+		g.lbw.StartLoad(workerCtx, mapID)
 	}
+}
+
+func isRanked(status int) bool {
+	return status >= 4
 }
 
 func (g *GameWorker) loadGame(ctx context.Context) {
@@ -109,7 +118,7 @@ func (g *GameWorker) loadGame(ctx context.Context) {
 
 	if err != nil {
 		logger.Errorf("Could not find a running osu client, please make sure your game is open.")
-		logger.Errorf(err.Error())
+		logger.Errorf("%v", err)
 
 		select {
 		case <-ctx.Done():
@@ -145,15 +154,17 @@ func (g *GameWorker) ChangeLeaderboard(w http.ResponseWriter, r *http.Request) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
+	if g.beatmap == nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	beatmapID := g.beatmap.MapID
+
 	ctx, cancel := context.WithCancel(context.Background())
 	g.cancelLb()
 	g.cancelLb = cancel
 
-	g.lbw.Wg.Add(1)
-	go func () {
-		g.lbw.Load(ctx, g.beatmap.MapID)
-		g.lbw.Wg.Done()
-	}()
+	g.lbw.StartLoad(ctx, beatmapID)
 
 	w.WriteHeader(http.StatusNoContent)
 }

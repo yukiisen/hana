@@ -25,7 +25,16 @@ type LeaderboardWorker struct {
 	ActiveLeaderboard string
 	scoreCache        *ScoreCache
 	mu                sync.Mutex
-	Wg                sync.WaitGroup
+
+	// loadMu ensures only one leaderboard load runs at a time so that a
+	// cancelled load cannot interleave broadcasts with its replacement.
+	loadMu sync.Mutex
+
+	// wgMu guards closed and the Add side of loading; Close sets closed and
+	// then waits, so no Add can race with Wait.
+	wgMu    sync.Mutex
+	loading sync.WaitGroup
+	closed  bool
 }
 
 func NewLeadboardWorker(
@@ -59,6 +68,35 @@ func NewLeadboardWorker(
 
 func (l *LeaderboardWorker) UserID(username string) (int, bool) {
 	return l.Store.UserID(username)
+}
+
+// StartLoad runs a leaderboard load in the background. It is a no-op after
+// Close, and it is safe to call concurrently with Close.
+func (l *LeaderboardWorker) StartLoad(ctx context.Context, beatmapID int32) {
+	l.wgMu.Lock()
+	if l.closed {
+		l.wgMu.Unlock()
+		return
+	}
+	l.loading.Add(1)
+	l.wgMu.Unlock()
+
+	go func() {
+		defer l.loading.Done()
+
+		if err := l.Load(ctx, beatmapID); err != nil {
+			logger.Errorf("%v", err)
+		}
+	}()
+}
+
+// Close prevents new loads from starting and waits for in-flight loads.
+func (l *LeaderboardWorker) Close() {
+	l.wgMu.Lock()
+	l.closed = true
+	l.wgMu.Unlock()
+
+	l.loading.Wait()
 }
 
 func (l *LeaderboardWorker) LoadUserIDs(ctx context.Context) error {
@@ -129,6 +167,9 @@ type leaderboardMessage struct {
 }
 
 func (l *LeaderboardWorker) Load(ctx context.Context, beatmapID int32) error {
+	l.loadMu.Lock()
+	defer l.loadMu.Unlock()
+
 	defer func() {
 		if err := l.Store.Save(); err != nil {
 			logger.Errorf("Failed to persist cache: %v", err)
@@ -266,13 +307,19 @@ func (l *LeaderboardWorker) Load(ctx context.Context, beatmapID int32) error {
 }
 
 func (l *LeaderboardWorker) broadcast(ctx context.Context, msg leaderboardMessage) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
 	data, err := json.Marshal(msg)
 	if err != nil {
 		return fmt.Errorf("marshal leaderboard message: %w", err)
 	}
 
+	// Snapshot the client list so we don't hold the lock while writing.
 	l.Clients.Mu.Lock()
-	clients := l.Clients.Clients
+	clients := append([]*websocket.Conn(nil), l.Clients.Clients...)
+	l.Clients.Mu.Unlock()
 
 	for _, client := range clients {
 		if err := ctx.Err(); err != nil {
@@ -283,8 +330,6 @@ func (l *LeaderboardWorker) broadcast(ctx context.Context, msg leaderboardMessag
 			logger.Errorf("Failed to broadcast leaderboard: %v", err)
 		}
 	}
-
-	l.Clients.Mu.Unlock()
 
 	return ctx.Err()
 }
