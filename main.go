@@ -5,8 +5,10 @@ import (
 	"embed"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path"
+	"runtime"
 	"sync"
 	"syscall"
 	"time"
@@ -21,6 +23,30 @@ import (
 
 func dataPath() string {
 	return path.Join(os.Getenv("HOME"), ".local/share/osu/files")
+}
+
+// openBrowser opens url in the user's default browser. It launches the
+// platform's handler and returns immediately without waiting for it.
+func openBrowser(url string) {
+	var cmd *exec.Cmd
+
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	case "darwin":
+		cmd = exec.Command("open", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
+	}
+
+	serverLog.Infof("Opening browser at %s", url)
+
+	if err := cmd.Start(); err != nil {
+		serverLog.Warnf("Failed to open browser: %v", err)
+		return
+	}
+
+	serverLog.Debugf("Launched %s", cmd.Path)
 }
 
 //go:embed public/*
@@ -98,6 +124,8 @@ func main() {
 
 	go func() {
 		serverLog.Infof("Listening on port %s", server.Addr)
+
+		openBrowser("http://localhost" + server.Addr)
 
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			serverLog.Errorf("HTTP server stopped: %v", err)
