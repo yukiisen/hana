@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	ws "github.com/coder/websocket"
-	"github.com/yukiisen/ohana/logger"
+	"github.com/yukiisen/hana/logger"
 )
 
 // clientLog scopes client messages so they are tagged [client].

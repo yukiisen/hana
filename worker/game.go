@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	"github.com/yukiisen/ohana/handler"
-	"github.com/yukiisen/ohana/logger"
-	"github.com/yukiisen/ohana/osumem"
+	"github.com/yukiisen/hana/handler"
+	"github.com/yukiisen/hana/logger"
+	"github.com/yukiisen/hana/osumem"
 )
 
 // gameLog scopes worker messages so they are tagged [game] in the output.

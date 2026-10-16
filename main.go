@@ -14,12 +14,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/yukiisen/ohana/cache"
-	"github.com/yukiisen/ohana/config"
-	"github.com/yukiisen/ohana/handler"
-	"github.com/yukiisen/ohana/logger"
-	"github.com/yukiisen/ohana/paths"
-	"github.com/yukiisen/ohana/worker"
+	"github.com/yukiisen/hana/cache"
+	"github.com/yukiisen/hana/config"
+	"github.com/yukiisen/hana/handler"
+	"github.com/yukiisen/hana/logger"
+	"github.com/yukiisen/hana/paths"
+	"github.com/yukiisen/hana/worker"
 )
 
 func dataPath() string {

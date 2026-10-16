@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	"github.com/yukiisen/ohana/cache"
-	"github.com/yukiisen/ohana/config"
-	"github.com/yukiisen/ohana/handler"
-	"github.com/yukiisen/ohana/logger"
+	"github.com/yukiisen/hana/cache"
+	"github.com/yukiisen/hana/config"
+	"github.com/yukiisen/hana/handler"
+	"github.com/yukiisen/hana/logger"
 )
 
 // lbLog scopes leaderboard messages so they are tagged [leaderboard].

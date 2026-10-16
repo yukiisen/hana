@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yukiisen/ohana/cache"
-	"github.com/yukiisen/ohana/config"
-	"github.com/yukiisen/ohana/handler"
+	"github.com/yukiisen/hana/cache"
+	"github.com/yukiisen/hana/config"
+	"github.com/yukiisen/hana/handler"
 )
 
 func newTestWorker(t *testing.T) *LeaderboardWorker {

@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yukiisen/ohana/logger"
+	"github.com/yukiisen/hana/logger"
 )
 
 const tokenURL = "https://osu.ppy.sh/oauth/token"

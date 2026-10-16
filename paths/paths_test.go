@@ -16,7 +16,7 @@ func TestConfigFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	want := filepath.Join(dir, "ohana", "config.json")
+	want := filepath.Join(dir, "hana", "config.json")
 	if got != want {
 		t.Fatalf("ConfigFile = %q, want %q", got, want)
 	}
@@ -34,7 +34,7 @@ func TestCacheFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	want := filepath.Join(dir, "ohana", "cache.json")
+	want := filepath.Join(dir, "hana", "cache.json")
 	if got != want {
 		t.Fatalf("CacheFile = %q, want %q", got, want)
 	}

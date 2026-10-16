@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/yukiisen/ohana/cache"
-	"github.com/yukiisen/ohana/logger"
+	"github.com/yukiisen/hana/cache"
+	"github.com/yukiisen/hana/logger"
 )
 
 type ScoreCache struct {

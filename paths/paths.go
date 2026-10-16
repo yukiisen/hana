@@ -1,4 +1,4 @@
-// Package paths resolves the OS-specific directories where ohana stores its
+// Package paths resolves the OS-specific directories where hana stores its
 // configuration and cache files.
 package paths
 
@@ -8,13 +8,13 @@ import (
 	"path/filepath"
 )
 
-const appName = "ohana"
+const appName = "hana"
 
 // ConfigFile returns the OS-specific path to the named configuration file,
 // creating its parent directory if needed.
 //
-// On Linux this is $XDG_CONFIG_HOME/ohana (default ~/.config/ohana); on
-// Windows it is %AppData%\ohana.
+// On Linux this is $XDG_CONFIG_HOME/hana (default ~/.config/hana); on
+// Windows it is %AppData%\hana.
 func ConfigFile(name string) (string, error) {
 	base, err := os.UserConfigDir()
 	if err != nil {
@@ -27,8 +27,8 @@ func ConfigFile(name string) (string, error) {
 // CacheFile returns the OS-specific path to the named cache file, creating
 // its parent directory if needed.
 //
-// On Linux this is $XDG_CACHE_HOME/ohana (default ~/.cache/ohana); on
-// Windows it is %LocalAppData%\ohana.
+// On Linux this is $XDG_CACHE_HOME/hana (default ~/.cache/hana); on
+// Windows it is %LocalAppData%\hana.
 func CacheFile(name string) (string, error) {
 	base, err := os.UserCacheDir()
 	if err != nil {
