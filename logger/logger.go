@@ -42,9 +42,9 @@ func (l *Logger) logf(level Level, tag, format string, args ...any) {
 		return
 	}
 	prefix := "[" + tag + "]"
-	if l.scope != "" {
-		prefix += "[" + l.scope + "]"
-	}
+	// if l.scope != "" {
+	// 	prefix += "[" + l.scope + "]"
+	// }
 	l.out.Printf(prefix+" "+format+"\n", args...)
 }
 

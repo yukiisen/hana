@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"embed"
+	"io/fs"
 	"net/http"
 	"os"
 	"os/exec"
@@ -114,11 +115,18 @@ func main() {
 	mux.HandleFunc("PUT /leaderboards", gameWorker.UpdateLeaderboards)
 	mux.HandleFunc("GET /leaderboards", gameWorker.GetLeaderboards)
 
+
 	mux.Handle("/lazer/",
 		http.StripPrefix("/lazer/", http.FileServer(http.Dir(dataPath()))),
 	)
 
-	mux.Handle("/", http.FileServer(http.FS(publicFS)))
+	subFS, err := fs.Sub(publicFS, "public")
+	if err != nil {
+		serverLog.Errorf("%v", err)
+		os.Exit(1)
+	}
+
+	mux.Handle("/", http.FileServer(http.FS(subFS)))
 
 	server := &http.Server{Addr: ":8080", Handler: mux}
 
