@@ -303,6 +303,16 @@ func (l *LeaderboardWorker) Load(ctx context.Context, beatmapID int32) error {
 		scores++
 	}
 
+	if scores == 0 {
+		if err := l.broadcast(ctx, leaderboardMessage{
+			Type:        "Leaderboard",
+			Leaderboard: name,
+			Data:        []Score{},
+		}); err != nil {
+			return err
+		}
+	}
+
 	lbLog.Infof(
 		"Finished loading leaderboard %q for beatmap %d (%d scores)",
 		name, beatmapID, scores,

@@ -128,7 +128,7 @@ func main() {
 
 	mux.Handle("/", http.FileServer(http.FS(subFS)))
 
-	server := &http.Server{Addr: ":8080", Handler: mux}
+	server := &http.Server{Addr: "0.0.0.0:8080", Handler: mux}
 
 	go func() {
 		serverLog.Infof("Listening on port %s", server.Addr)

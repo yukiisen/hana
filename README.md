@@ -6,7 +6,7 @@ customizeable leaderboard to your browser.
 Hana attaches to a running **osu!stable** or **osu!lazer** process, reads the
 currently selected beatmap out of game memory (like
 [tosu](https://github.com/tosuapp/tosu)), fetches scores from the osu! API, and
-pushes them to a web UI over a WebSocket — so you can watch friends' (or global)
+pushes them to a web UI over a WebSocket so you can watch friends' (or global)
 scores update in real time while you play.
 
 ![screenshot](screenshot.png)
@@ -38,11 +38,11 @@ scores update in real time while you play.
 - Go 1.27+ (to build)
 - A running osu! client (stable or lazer) on the same machine
 - An osu! OAuth **client credentials** token
-  ([create one here](https://osu.ppy.sh/home/account/edit) — scope doesn't
+  ([create one here](https://osu.ppy.sh/home/account/edit), scope doesn't
   matter, Hana uses `client_credentials` / `public`)
 - Linux or Windows
 
-On Linux, reading another process's memory requires ptrace permissions — e.g.
+On Linux, reading another process's memory requires ptrace permissions e.g.
 run Hana as the same user as osu! and, if needed, allow it:
 
 ```sh
@@ -90,7 +90,7 @@ Fill in your API credentials:
 
 Leaderboard definitions can also be edited from the web UI at
 `/boards.html`; changes are saved back to `config.json`. Keep custom boards
-small — each user costs one API request per uncached beatmap.
+small, each user costs one API request per uncached beatmap.
 
 ## Development
 
@@ -117,10 +117,10 @@ PRs are very welcome if you'd like to help reduce the amount of AI code in here.
 
 ## Credits
 
-- [tosu](https://github.com/tosuapp/tosu) — memory-reading approach and
+- [tosu](https://github.com/tosuapp/tosu) - memory-reading approach and
   signatures that `osumem` is ported from
 - [rosu-pp](https://github.com/maxrh/rosu-pp) /
-  [rosu-pp-js](https://github.com/maxrh/rosu-pp-js) — difficulty & performance
+  [rosu-pp-js](https://github.com/maxrh/rosu-pp-js) - difficulty & performance
   calculation in the browser (MIT, see `public/rosu/LICENSE`)
 - [coder/websocket](https://github.com/coder/websocket) — WebSocket server
 
