@@ -9,7 +9,7 @@ currently selected beatmap out of game memory (like
 pushes them to a web UI over a WebSocket so you can watch friends' (or global)
 scores update in real time while you play.
 
-![screenshot](https://github.com/yukiisen/hana/blob/main/screenshot.png)
+![screenshot](https://raw.githubusercontent.com/yukiisen/hana/refs/heads/main/screenshot.png)
 
 ## Features
 
